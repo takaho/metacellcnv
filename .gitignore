@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+_smoke/
+cache/
+*.h5ad
