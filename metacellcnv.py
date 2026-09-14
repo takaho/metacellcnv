@@ -385,14 +385,16 @@ def preflight(
         path = Path(d)
         if not path.exists():
             raise FileNotFoundError(f"Directory does not exist: {d}")
-        matrix = path / "matrix.mtx.gz"
-        barcodes = path / "barcodes.tsv.gz"
-        features = path / "features.tsv.gz"
-        if not features.exists():
-            features = path / "genes.tsv.gz"
+        matrix = next((p for p in (path / "matrix.mtx.gz", path / "matrix.mtx") if p.exists()),
+                      path / "matrix.mtx.gz")
+        barcodes = next((p for p in (path / "barcodes.tsv.gz", path / "barcodes.tsv") if p.exists()),
+                        path / "barcodes.tsv.gz")
+        features = next((p for p in (path / "features.tsv.gz", path / "features.tsv",
+                                     path / "genes.tsv.gz", path / "genes.tsv") if p.exists()),
+                        path / "features.tsv.gz")
         missing = [p.name for p in (matrix, barcodes, features) if not p.exists()]
         if missing:
-            raise FileNotFoundError(f"{d}: required files not found: {missing}")
+            raise FileNotFoundError(f"{d}: required files not found (gzipped or plain is fine): {missing}")
 
         genes: list[str] = []
         with _open_maybe_gzip(features) as handle:
