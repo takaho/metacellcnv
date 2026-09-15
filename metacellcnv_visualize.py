@@ -1625,6 +1625,21 @@ def run_plotly(args, fig_dir: Path) -> None:
                 pd.read_csv(chrm, index_col=0), obs)
         except Exception as exc:
             warn(f"Skipping the CNV heatmap: {exc}")
+    elif (res / "cnv_metacells.h5ad").exists():
+        # cnv_chromosome_means.csv is normally written as a side effect of the
+        # --engine matplotlib figure-8 code; compute the same metacell x
+        # chromosome table directly from cnv_metacells.h5ad instead, so the
+        # plotly-only path (the default) doesn't silently skip this figure.
+        try:
+            import anndata as ad
+            import cnv_lineage as LIN
+            cnv_adata = ad.read_h5ad(res / "cnv_metacells.h5ad")
+            mat = LIN.profiles_from_adata(cnv_adata, aggregate="chromosome")
+            figs["Chromosome-level CNV"] = PL.fig_cnv_heatmap(mat, obs)
+        except Exception as exc:
+            warn(f"Skipping the CNV heatmap: {exc}")
+    else:
+        say("Neither cnv_chromosome_means.csv nor cnv_metacells.h5ad found; skipping the CNV heatmap")
 
     nwk = res / "cnv_lineage.nwk"
     if nwk.exists():
