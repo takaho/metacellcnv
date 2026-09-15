@@ -657,8 +657,14 @@ def profiles_from_adata(cnv_adata, key: str = "cnv",
     if aggregate == "window" or not chr_pos:
         cols = [f"w{i}" for i in range(X.shape[1])]
         return pd.DataFrame(X, index=cnv_adata.obs_names.astype(str), columns=cols)
-    names = list(chr_pos.keys())
-    starts = list(chr_pos.values()) + [X.shape[1]]
+    # chr_pos dict order is NOT guaranteed to match genomic position order: h5ad
+    # round-trips uns through h5py, which stores dict keys alphabetically, not in
+    # insertion order. Sorting by the stored offset (as chromosome_cnv_matrix()
+    # in metacellcnv_visualize.py already does) is required, or segments get
+    # paired with the wrong start/end and silently merge or drop entirely.
+    items = sorted(chr_pos.items(), key=lambda kv: int(kv[1]))
+    names = [n for n, _ in items]
+    starts = [int(v) for _, v in items] + [X.shape[1]]
     data = {c: X[:, s:e].mean(1) for c, s, e in zip(names, starts[:-1], starts[1:])
             if e > s}
     return pd.DataFrame(data, index=cnv_adata.obs_names.astype(str))
