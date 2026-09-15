@@ -23,13 +23,22 @@ import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 
 try:
-    from scrna_common import log, warn
+    from scrna_common import log, warn, MITO_CHROMOSOMES
 except Exception:  # pragma: no cover
     def log(m: str) -> None:
         print(f"[plot] {m}", flush=True)
 
     def warn(m: str) -> None:
         print(f"[plot][warn] {m}", flush=True)
+
+    MITO_CHROMOSOMES = ("NC_002008.4", "chrM", "chrMT", "MT", "M")
+
+#: Default chromosome-name variants dropped as mitochondrial by fig_cnv_heatmap
+#: when the caller doesn't resolve --mito-chromosome itself (e.g. metacellcnv_
+#: visualize.py's run_plotly() always does; this is the fallback for direct
+#: API use). Mitochondrial DNA isn't diploid, so its CNV amplitude otherwise
+#: dwarfs real nuclear CNV and masks it in the heatmap's color scale.
+DEFAULT_MITO_EXCLUDE = {"chrMito"} | {str(c) for c in MITO_CHROMOSOMES}
 
 
 __version__ = "1.0"
@@ -218,8 +227,16 @@ def fig_scatter_panels(prep_dir: str | Path, results_dir: str | Path, *,
 # ---------------------------------------------------------------------------
 
 def fig_cnv_heatmap(mat: pd.DataFrame, obs: pd.DataFrame | None = None, *,
-                    title: str = "Chromosome-level CNV") -> go.Figure:
-    """CNV per metacell x chromosome; rows ordered by hierarchical clustering."""
+                    title: str = "Chromosome-level CNV",
+                    mito_exclude: set[str] | None = None) -> go.Figure:
+    """CNV per metacell x chromosome; rows ordered by hierarchical clustering.
+
+    mito_exclude: chromosome-name variants (case-insensitive) to drop as
+    mitochondrial before rendering. Defaults to DEFAULT_MITO_EXCLUDE. Applied
+    here (not just upstream) so this figure is safe from mito columns
+    regardless of which caller built `mat` -- a pre-computed
+    cnv_chromosome_means.csv, or a table derived on the fly.
+    """
     from scipy.cluster.hierarchy import linkage, leaves_list
     from scipy.spatial.distance import pdist
 
@@ -229,6 +246,11 @@ def fig_cnv_heatmap(mat: pd.DataFrame, obs: pd.DataFrame | None = None, *,
     if drop:
         log(f"Dropped non-numeric columns: {drop}")
         M = M.drop(columns=drop)
+    mito_lower = {str(m).lower() for m in (mito_exclude if mito_exclude is not None else DEFAULT_MITO_EXCLUDE)}
+    drop_mito = [c for c in M.columns if str(c).lower() in mito_lower]
+    if drop_mito:
+        log(f"Dropped mitochondrial chromosome column(s): {drop_mito}")
+        M = M.drop(columns=drop_mito)
     M = M.fillna(0.0)
     if M.shape[1] == 0:
         raise ValueError("No numeric chromosome columns found")
@@ -281,12 +303,16 @@ def _beeswarm_offsets(y: np.ndarray, width: float = 0.34,
 
 
 def fig_deg_swarm(expr: pd.DataFrame, genes: Sequence[str],
-                  obs: pd.DataFrame, *, max_cols: int = 5) -> go.Figure:
+                  obs: pd.DataFrame, *, max_cols: int = 5,
+                  stats: pd.DataFrame | None = None) -> go.Figure:
     """Plot per-metacell expression of top DEGs, grouped by label.
 
     Group labels come from `resolve_group_labels`, which prefers
     `anno_label` over the legacy `cell_type` column, so unsupported names
     like `Myeloid_0` won't appear directly in the figure.
+
+    `stats`, if given, is the DE table (indexed by gene, with
+    `log2FoldChange` and `padj` columns) used to annotate each subplot title.
     """
     labels, used = resolve_group_labels(obs)
     labels = prettify_labels(labels).reindex(expr.index)
@@ -298,9 +324,18 @@ def fig_deg_swarm(expr: pd.DataFrame, genes: Sequence[str],
     levels = sorted(labels.unique())
     pal = _palette(levels)
 
+    def _title(g: str) -> str:
+        if stats is None or g not in stats.index:
+            return g
+        lfc = float(stats.loc[g, "log2FoldChange"])
+        padj = float(stats.loc[g, "padj"])
+        ptxt = "padj<1e-300" if padj < 1e-300 else f"padj={padj:.1e}"
+        return f"{g}  log2FC={lfc:+.2f}  {ptxt}"
+
     ncol = min(max_cols, len(genes))
     nrow = int(np.ceil(len(genes) / ncol))
-    fig = make_subplots(rows=nrow, cols=ncol, subplot_titles=list(genes),
+    fig = make_subplots(rows=nrow, cols=ncol,
+                        subplot_titles=[_title(g) for g in genes],
                         shared_yaxes=False, vertical_spacing=0.12,
                         horizontal_spacing=0.06)
     for gi, g in enumerate(genes):
@@ -491,8 +526,14 @@ def fig_metacell_quality(obs: pd.DataFrame) -> go.Figure:
 
 def write_report(figures: dict[str, go.Figure], path: str | Path, *,
                  title: str = "metacellcnv report",
-                 png_dir: str | Path | None = None) -> Path:
-    """Combine figures into a single HTML report; also writes PNGs if png_dir is given."""
+                 png_dir: str | Path | None = None,
+                 pdf_dir: str | Path | None = None) -> Path:
+    """Combine figures into a single HTML report; also writes PNGs/PDFs if those dirs are given.
+
+    Static export (png_dir, pdf_dir) uses go.Figure.write_image (Kaleido) and is
+    best-effort: a missing/broken Kaleido install skips it with a warning rather
+    than failing the report, since the HTML report is already complete without it.
+    """
     out = Path(path)
     out.parent.mkdir(parents=True, exist_ok=True)
     parts = [
@@ -511,18 +552,22 @@ def write_report(figures: dict[str, go.Figure], path: str | Path, *,
         first = False
     out.write_text("\n".join(parts), encoding="utf-8")
     log(f"HTML report: {out} ({len(figures)} figures)")
-    if png_dir:
-        d = Path(png_dir); d.mkdir(parents=True, exist_ok=True)
+
+    for ext, target_dir in (("png", png_dir), ("pdf", pdf_dir)):
+        if not target_dir:
+            continue
+        d = Path(target_dir); d.mkdir(parents=True, exist_ok=True)
+        kwargs = {"scale": 2} if ext == "png" else {}
         for i, (name, fig) in enumerate(figures.items(), start=1):
             safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in name)
             try:
-                fig.write_image(str(d / f"{i:02d}_{safe}.png"), scale=2)
+                fig.write_image(str(d / f"{i:02d}_{safe}.{ext}"), **kwargs)
             except Exception as exc:
-                warn(f"Skipping PNG export ({name}): {str(exc).strip()[:80]}."
-                     " To enable PNG export, run `pip install kaleido` and"
-                     " `plotly_get_chrome`."
-                     " The HTML report is complete without PNGs.")
+                warn(f"Skipping {ext.upper()} export ({name}): {str(exc).strip()[:80]}."
+                     " To enable static image export, run `pip install kaleido`"
+                     " (and, on some systems, `plotly_get_chrome`)."
+                     f" The HTML report is complete without {ext.upper()}s.")
                 break
         else:
-            log(f"PNG: {d}")
+            log(f"{ext.upper()}: {d}")
     return out

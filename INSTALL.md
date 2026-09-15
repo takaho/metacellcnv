@@ -32,7 +32,7 @@ pip install plotly
 |---|---|
 | `matplotlib` | Legacy static-figure report (`metacellcnv.py --visualize --engine matplotlib`) |
 | `infercnvpy` | One figure in the legacy matplotlib report only (`cnv.pl.chromosome_heatmap`); **not** needed by the CNV pipeline itself, which does not depend on infercnvpy at all |
-| `kaleido` | Exporting the Plotly report's figures to static PNG in addition to the HTML report. Kaleido needs a Chrome/Chromium install; if it's missing, the HTML report is still written in full, just without PNGs |
+| `kaleido` | Exporting the Plotly report's figures to static PNG and PDF in addition to the HTML report. Kaleido needs a Chrome/Chromium install; if it's missing, the HTML report is still written in full, just without PNGs/PDFs |
 | `threadpoolctl` | Only for the standalone `blas_check.py` diagnostic |
 
 Nothing else in this repository imports `SEACells` or `infercnvpy` for its own computation — metacell construction and CNV inference are both native reimplementations. (`decoupler` is checked for at pipeline startup and reported if present, but is not actually required by anything here — safe to ignore.)

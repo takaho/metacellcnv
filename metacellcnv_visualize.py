@@ -10,7 +10,13 @@ Usage:
     python metacellcnv_visualize.py --results-dir results
     # Figures go to results/figures/, the summary to results/interpretation_report.txt
 
-Outputs:
+Outputs (--engine plotly, the default):
+    figures/report.html              Combined HTML report (QC, metacell quality, CNV heatmap, lineage tree)
+    figures/de_report.html           DEG swarm plot, as its own report (not merged into report.html)
+    figures/NN_<name>.png            Each report.html/de_report.html figure, exported as PNG (needs kaleido)
+    figures/NN_<name>.pdf            Same figures, exported as PDF (needs kaleido)
+
+Outputs (--engine matplotlib / both -- legacy static figures):
     figures/01_qc.png                QC flag breakdown and distributions
     figures/02_metacell_quality.png  compactness x separation (2D quality view)
     figures/03_cnv_heatmap_*.png     Chromosome-ordered CNV heatmap, by group
@@ -886,8 +892,35 @@ def report_de(
 
 _NC_ACC = re.compile(r"^(?:chr)?(N[CTWZ]_\d+)(?:\.\d+)?$")
 
-#: Known non-chromosome labels to exclude when laying out the figure's x-axis
-_NON_CHROM = {"chrM", "chrMT", "chrMito"}
+try:
+    from scrna_common import MITO_CHROMOSOMES as _MITO_CHROMOSOMES
+except Exception:  # pragma: no cover -- keep this module usable stand-alone
+    _MITO_CHROMOSOMES = ("NC_002008.4", "chrM", "chrMT", "MT", "M")
+
+#: Known non-chromosome labels to exclude when laying out the figure's x-axis.
+#: Mitochondrial DNA isn't diploid to begin with, so its CNV amplitude tends to
+#: dwarf real nuclear CNV and mask it in the heatmap -- these are the labels
+#: dropped by default when --mito-chromosome isn't given (see resolve_mito_exclude).
+_NON_CHROM = {"chrMito"} | {str(c) for c in _MITO_CHROMOSOMES}
+
+
+def resolve_mito_exclude(explicit: list[str] | None) -> set[str]:
+    """Chromosome-name variants to drop from the CNV heatmap as mitochondrial.
+
+    If --mito-chromosome was given (one or more times), only those values --
+    plus their 'chr'-prefixed/unprefixed variants -- are excluded, so a real
+    chromosome that happens to collide with a default label isn't dropped.
+    Otherwise, fall back to the known mitochondrial labels (chrM, chrMT, MT, M,
+    and the dog CanFam6/Dog10K accession NC_002008.4).
+    """
+    if explicit:
+        out: set[str] = set()
+        for name in explicit:
+            name = str(name)
+            out.add(name)
+            out.add(name[3:] if name.lower().startswith("chr") else f"chr{name}")
+        return out
+    return set(_NON_CHROM)
 
 
 def load_chromosome_map(path: Path | None) -> dict[str, str]:
@@ -961,13 +994,18 @@ def chromosome_display_names(
     return labels, inferred
 
 
-def chromosome_cnv_matrix(cnv_adata, exclude_unplaced: bool = True):
+def chromosome_cnv_matrix(cnv_adata, exclude_unplaced: bool = True,
+                          mito_exclude: set[str] | None = None):
     """Aggregate obsm['X_cnv'] into per-chromosome values using uns['cnv']['chr_pos'] boundaries.
 
     Returns (mean_df, gain_df, loss_df), all metacell x chromosome.
       mean_df : mean CNV of the windows within the chromosome (amplitude)
       gain_df : fraction of windows above +threshold (breadth of gain)
       loss_df : fraction of windows below -threshold (breadth of loss)
+
+    mito_exclude: chromosome-name variants to drop as mitochondrial (case-
+    insensitive). Defaults to _NON_CHROM when not given -- see
+    resolve_mito_exclude() for how the CLI resolves this from --mito-chromosome.
     """
     import scipy.sparse as sp
 
@@ -983,11 +1021,12 @@ def chromosome_cnv_matrix(cnv_adata, exclude_unplaced: bool = True):
         end = int(items[i + 1][1]) if i + 1 < len(items) else x.shape[1]
         bounds.append((str(name), int(start), int(end)))
 
+    mito_lower = {str(m).lower() for m in (mito_exclude if mito_exclude is not None else _NON_CHROM)}
     keep = []
     for name, s, e in bounds:
         if e - s < 1:
             continue
-        if name in _NON_CHROM:
+        if name.lower() in mito_lower:
             continue
         if exclude_unplaced and _NC_ACC.match(name) and not _NC_ACC.match(name).group(1).startswith("NC_"):
             continue
@@ -1072,6 +1111,7 @@ def report_chromosome_cnv_heatmap(
     chromosome_map_path: Path | None = None,
     n_clusters: int | None = None,
     exclude_unplaced: bool = True,
+    mito_exclude: set[str] | None = None,
 ) -> None:
     """Fig 8: chromosome x metacell gain/loss heatmap. Metacells are ordered by CNV clustering."""
     section("6. Chromosome-level CNV heatmap (fig 8)")
@@ -1081,7 +1121,7 @@ def report_chromosome_cnv_heatmap(
         return
     try:
         mean_df, gain_df, loss_df, thr = chromosome_cnv_matrix(
-            cnv_adata, exclude_unplaced=exclude_unplaced
+            cnv_adata, exclude_unplaced=exclude_unplaced, mito_exclude=mito_exclude
         )
     except Exception as exc:
         say(f"[!] Failed to aggregate to chromosome level: {exc}")
@@ -1124,7 +1164,9 @@ def report_chromosome_cnv_heatmap(
             "get the actual numbers."
         )
     if exclude_unplaced:
-        say("Unplaced scaffolds such as NW_* and chrM are excluded from the figure.")
+        say("Unplaced scaffolds such as NW_* are excluded from the figure.")
+    say(f"Mitochondrial chromosome(s) excluded from the figure: "
+        f"{sorted(mito_exclude if mito_exclude is not None else _NON_CHROM)}")
     say(
         "Row order: not by ID, but by hierarchical clustering of per-chromosome mean "
         "CNV (Euclidean + Ward, optimal leaf ordering), placing similar metacells next "
@@ -1618,11 +1660,12 @@ def run_plotly(args, fig_dir: Path) -> None:
     except Exception as exc:
         warn(f"Skipping the metacell quality figure: {exc}")
 
+    mito_exclude = resolve_mito_exclude(getattr(args, "mito_chromosome", None))
     chrm = res / "cnv_chromosome_means.csv"
     if chrm.exists():
         try:
             figs["Chromosome-level CNV"] = PL.fig_cnv_heatmap(
-                pd.read_csv(chrm, index_col=0), obs)
+                pd.read_csv(chrm, index_col=0), obs, mito_exclude=mito_exclude)
         except Exception as exc:
             warn(f"Skipping the CNV heatmap: {exc}")
     elif (res / "cnv_metacells.h5ad").exists():
@@ -1630,12 +1673,15 @@ def run_plotly(args, fig_dir: Path) -> None:
         # --engine matplotlib figure-8 code; compute the same metacell x
         # chromosome table directly from cnv_metacells.h5ad instead, so the
         # plotly-only path (the default) doesn't silently skip this figure.
+        # profiles_from_adata() doesn't drop mito/unplaced columns itself, so
+        # fig_cnv_heatmap's mito_exclude is what keeps chrM from dominating
+        # the color scale here.
         try:
             import anndata as ad
             import cnv_lineage as LIN
             cnv_adata = ad.read_h5ad(res / "cnv_metacells.h5ad")
             mat = LIN.profiles_from_adata(cnv_adata, aggregate="chromosome")
-            figs["Chromosome-level CNV"] = PL.fig_cnv_heatmap(mat, obs)
+            figs["Chromosome-level CNV"] = PL.fig_cnv_heatmap(mat, obs, mito_exclude=mito_exclude)
         except Exception as exc:
             warn(f"Skipping the CNV heatmap: {exc}")
     else:
@@ -1657,8 +1703,50 @@ def run_plotly(args, fig_dir: Path) -> None:
 
     out = fig_dir / "report.html"
     PL.write_report(figs, out, title=f"metacellcnv report — {res.name}",
-                    png_dir=fig_dir)
+                    png_dir=fig_dir, pdf_dir=fig_dir)
     say(f"Plotly report: {out}")
+
+    # DEG swarm plot: a separate report file (de_report.html), not merged into
+    # report.html, so it can be regenerated/shared on its own -- e.g. after
+    # rerunning DE with different --swarm-* options -- without touching the
+    # rest of the figures.
+    deg_path = res / "de_malignant_vs_normal.csv"
+    if not deg_path.exists():
+        say("de_malignant_vs_normal.csv not found; skipping the DEG swarm report")
+    else:
+        try:
+            de = pd.read_csv(deg_path, index_col=0)
+            top = select_top_degs(de, top_n=args.swarm_top_n, rank=args.swarm_rank)
+            if not len(top):
+                say("[!] No significant genes meet the criteria (padj < 0.05, "
+                    "|log2FC| >= 0.5, baseMean >= 5); skipping the DEG swarm report.")
+            else:
+                cnv_adata_for_expr = None
+                if not (res / "metacells.h5ad").exists() and (res / "cnv_metacells.h5ad").exists():
+                    import anndata as ad
+                    cnv_adata_for_expr = ad.read_h5ad(res / "cnv_metacells.h5ad")
+                expr, expr_note = _metacell_expression(res, cnv_adata_for_expr)
+                if expr is None:
+                    say("[!] No metacell expression matrix found; skipping the DEG swarm report.")
+                else:
+                    genes = [g for g in top.index if g in expr.columns]
+                    if not genes:
+                        say("[!] None of the selected DEGs are in the expression matrix; "
+                            "skipping the DEG swarm report.")
+                    else:
+                        say(f"DEG swarm gene selection: rank='{args.swarm_rank}' "
+                            f"(top {args.swarm_top_n} among padj < 0.05, |log2FC| >= 0.5, baseMean >= 5)")
+                        say(f"Expression values: {expr_note}")
+                        deg_fig = PL.fig_deg_swarm(expr, genes, obs, stats=top)
+                        deg_out = fig_dir / "de_report.html"
+                        PL.write_report(
+                            {f"Top {len(genes)} DEGs (metacell level)": deg_fig}, deg_out,
+                            title=f"metacellcnv DEG report — {res.name}",
+                            png_dir=fig_dir, pdf_dir=fig_dir,
+                        )
+                        say(f"DEG report: {deg_out}")
+        except Exception as exc:
+            warn(f"Skipping the DEG swarm report: {exc}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -1690,6 +1778,14 @@ def main(argv: list[str] | None = None) -> int:
         "--include-unplaced",
         action="store_true",
         help="Include unplaced scaffolds such as NW_* in figure 8",
+    )
+    parser.add_argument(
+        "--mito-chromosome",
+        action="append",
+        default=None,
+        help="Sequence ID(s) of the mitochondrial genome to exclude from the CNV heatmap "
+        "(repeatable; same values as metacellcnv.py's --mito-chromosome). Defaults to "
+        f"known IDs {sorted(_NON_CHROM)}.",
     )
     parser.add_argument(
         "--swarm-top-n", type=int, default=20, help="Number of DEGs shown in the figure 9 swarm plot (default 20)"
@@ -1806,6 +1902,7 @@ def main(argv: list[str] | None = None) -> int:
                 chromosome_map_path=Path(args.chromosome_map) if args.chromosome_map else None,
                 n_clusters=args.chr_heatmap_clusters,
                 exclude_unplaced=not args.include_unplaced,
+                mito_exclude=resolve_mito_exclude(args.mito_chromosome),
             )
         except Exception as exc:
             say(f"[!] Failed to build figure 8 (chromosome-level CNV heatmap): {exc}")
