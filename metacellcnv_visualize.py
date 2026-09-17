@@ -238,6 +238,7 @@ def report_metacell_quality(results: Path, fig_dir: Path, mc_obs: pd.DataFrame |
         say("metacell_metrics.csv not found (skipping)")
         return
     m = pd.read_csv(path)
+    _mc_key = resolve_metacell_key(m.columns)
 
     section("2. Metacell quality (metacell_metrics.csv)")
     say(f"Metacells: {len(m):,}")
@@ -273,7 +274,7 @@ def report_metacell_quality(results: Path, fig_dir: Path, mc_obs: pd.DataFrame |
             f"{len(bad)} metacells"
         )
         if len(bad):
-            say("    " + ", ".join(bad["SEACell"].astype(str).tolist()[:20]))
+            say("    " + ", ".join(bad[_mc_key].astype(str).tolist()[:20]))
         else:
             say("    -> No metacells need to be dropped; --drop-bad-metacells is unnecessary.")
 
@@ -664,7 +665,7 @@ def report_mito_qc(results: Path, fig_dir: Path, mc_obs: pd.DataFrame | None) ->
         # Directly label only the anomalous points (not relying on color alone)
         for name, row in df.loc[bad].iterrows():
             if np.isfinite(row.get("nuc_mito_frac", np.nan)):
-                ax.annotate(str(name).replace("SEACell-", "MC"),
+                ax.annotate("MC" + strip_metacell_prefix(name),
                             (row["nuc_mito_frac"] * 100, row["mt_frac"] * 100),
                             fontsize=6.5, color=C_INK, xytext=(4, 3),
                             textcoords="offset points")
@@ -897,6 +898,24 @@ try:
 except Exception:  # pragma: no cover -- keep this module usable stand-alone
     _MITO_CHROMOSOMES = ("NC_002008.4", "chrM", "chrMT", "MT", "M")
 
+try:
+    from scrna_common import METACELL_KEY, resolve_metacell_key, strip_metacell_prefix
+except Exception:  # pragma: no cover -- keep this module usable stand-alone
+    METACELL_KEY = "metacell"
+
+    def resolve_metacell_key(columns):
+        cols = set(columns)
+        if METACELL_KEY in cols:
+            return METACELL_KEY
+        return "SEACell" if "SEACell" in cols else METACELL_KEY
+
+    def strip_metacell_prefix(name):
+        s = str(name)
+        for p in ("MC-", "SEACell-"):
+            if s.startswith(p):
+                return s[len(p):]
+        return s
+
 #: Known non-chromosome labels to exclude when laying out the figure's x-axis.
 #: Mitochondrial DNA isn't diploid to begin with, so its CNV amplitude tends to
 #: dwarf real nuclear CNV and mask it in the heatmap -- these are the labels
@@ -1051,7 +1070,7 @@ def chromosome_cnv_matrix(cnv_adata, exclude_unplaced: bool = True,
         mean[:, j] = blk.mean(axis=1)
         gain[:, j] = (blk > thr).mean(axis=1)
         loss[:, j] = (blk < -thr).mean(axis=1)
-    idx = pd.Index(cnv_adata.obs_names, name="SEACell")
+    idx = pd.Index(cnv_adata.obs_names, name=METACELL_KEY)
     return (
         pd.DataFrame(mean, index=idx, columns=names),
         pd.DataFrame(gain, index=idx, columns=names),

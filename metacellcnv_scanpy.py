@@ -354,7 +354,10 @@ def metacell_cluster_containment(assignments: pd.Series | pd.DataFrame,
     """
     if isinstance(assignments, pd.DataFrame):
         col = None
-        for cand in ("SEACell", "metacell", "metacell_id", "seacell"):
+        # "metacell" is the new name; "SEACell" is kept for compatibility with
+        # results from before the rename; "metacell_id"/"seacell" are aliases
+        # this function has accepted on its own.
+        for cand in ("metacell", "SEACell", "metacell_id", "seacell"):
             if cand in assignments.columns:
                 col = cand
                 break

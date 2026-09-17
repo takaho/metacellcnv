@@ -19,6 +19,7 @@ Contents:
   doublets             detect_doublets_cluster_aware
   misc                 ensure_sample_id / validate_dimensionality / _write_h5ad /
                         _leiden_supports_igraph / check_gene_overlap
+  metacell naming      resolve_metacell_key / strip_metacell_prefix
 
 This module does not depend on CNV estimation (infercnvpy) or DE analysis
 (pyDESeq2). See README.md for setup, usage, and version history.
@@ -96,6 +97,49 @@ MITO_SYMBOLS = {
 # Upper bound on sequence length for calling a contig mtDNA (mammalian
 # mtDNA is roughly 16.6 kb).
 MITO_MAX_LENGTH = 25_000
+
+# ---------------------------------------------------------------------------
+# Metacell naming
+# ---------------------------------------------------------------------------
+# Canonical column name / ID prefix for metacells. This pipeline does not use
+# the SEACells library (metacells_native.py is a from-scratch reimplementation
+# -- see its docstring), but earlier versions still generated IDs and an obs
+# column named after it ("SEACell" / "SEACell-N"), which was confusing and had
+# stuck around for a long time. New results use "metacell" / "MC-N"; code that
+# reads existing results (load_seacell_assignments, etc.) still accepts the
+# old names too, so already-computed results remain usable without rerunning.
+METACELL_KEY = "metacell"
+METACELL_PREFIX = "MC-"
+LEGACY_METACELL_KEYS: tuple[str, ...] = ("SEACell",)
+LEGACY_METACELL_PREFIXES: tuple[str, ...] = ("SEACell-",)
+
+
+def resolve_metacell_key(columns) -> str:
+    """Return the metacell-ID column name actually present in obs/DataFrame.
+
+    Prefers "metacell" if present, otherwise returns whichever known legacy
+    name ("SEACell") is present. If neither is present, returns "metacell"
+    (the default name to use when creating a new column). `columns` can be
+    anything iterable of column names (DataFrame.columns / obs / a plain
+    list).
+    """
+    cols = set(columns)
+    if METACELL_KEY in cols:
+        return METACELL_KEY
+    for k in LEGACY_METACELL_KEYS:
+        if k in cols:
+            return k
+    return METACELL_KEY
+
+
+def strip_metacell_prefix(name) -> str:
+    """Strip a metacell-ID prefix for display: "MC-3" / legacy "SEACell-3" -> "3"."""
+    s = str(name)
+    for p in (METACELL_PREFIX,) + LEGACY_METACELL_PREFIXES:
+        if s.startswith(p):
+            return s[len(p):]
+    return s
+
 
 MITO_MIN_GENES = 5
 

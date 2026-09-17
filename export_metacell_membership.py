@@ -10,7 +10,10 @@ expression matrix.
 
 Usage:
     python export_metacell_membership.py results_c1
-    python export_metacell_membership.py results_c1 --metacell SEACell-3 SEACell-4
+    python export_metacell_membership.py results_c1 --metacell MC-3 MC-4
+
+Column names accept both the new "metacell" name and the legacy "SEACell"
+name (from an h5ad written before the rename).
 
 See README.md for details.
 """
@@ -23,6 +26,8 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+from scrna_common import resolve_metacell_key
 
 
 def read_obs_only(h5ad_path: Path) -> pd.DataFrame:
@@ -79,17 +84,18 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     obs = read_obs_only(h5ad)
-    if "SEACell" not in obs:
+    mc_key = resolve_metacell_key(obs.columns)
+    if mc_key not in obs:
         print(
-            "obs has no 'SEACell' column. Pass an h5ad that went through"
-            " build_seacells().",
+            "obs has no metacell column ('metacell' / legacy 'SEACell'). Pass an"
+            " h5ad that went through build_metacells().",
             file=sys.stderr,
         )
         return 1
 
     keep = [
         c
-        for c in ("SEACell", "sample_id", "coarse_cluster", "cell_type", "total_counts",
+        for c in (mc_key, "sample_id", "coarse_cluster", "cell_type", "total_counts",
                   "n_genes_by_counts", "pct_counts_mt", "doublet_score")
         if c in obs
     ]
@@ -98,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
     table.to_csv(out_path)
     print(f"Saved: {out_path} ({len(table):,} cells x {len(keep)} columns)")
 
-    sizes = table["SEACell"].value_counts()
+    sizes = table[mc_key].value_counts()
     print(
         f"metacells: {len(sizes)} / member cells: median {int(sizes.median())}"
         f" range {int(sizes.min())}-{int(sizes.max())}"
@@ -106,7 +112,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.metacell:
         for mc in args.metacell:
-            bcs = table.index[table["SEACell"].astype(str) == str(mc)].tolist()
+            bcs = table.index[table[mc_key].astype(str) == str(mc)].tolist()
             print(f"\n=== {mc}: {len(bcs)} cells ===")
             for b in bcs:
                 print(b)

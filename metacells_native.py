@@ -44,6 +44,8 @@ import numpy as np
 import pandas as pd
 import scipy.sparse as sp
 
+from scrna_common import METACELL_KEY, METACELL_PREFIX
+
 try:
     from scrna_common import log, warn
 except Exception:  # pragma: no cover - when used standalone
@@ -278,10 +280,10 @@ def init_maxmin(X: np.ndarray, k: int, seed: int = 0) -> np.ndarray:
 class MetacellModel:
     """Metacell construction via archetypal decomposition (no SEACells dependency).
 
-    Usage mirrors SEACells:
+    Usage mirrors SEACells (this implementation just doesn't depend on the library):
         model = MetacellModel(n_metacells=300, use_rep="X_pca")
-        model.fit(adata)                      # writes adata.obs['SEACell']
-        model.hard_assignments()               # pd.DataFrame with column 'SEACell'
+        model.fit(adata)                      # writes adata.obs['metacell']
+        model.hard_assignments()               # pd.DataFrame with column 'metacell'
     """
 
     def __init__(self, n_metacells: int, use_rep: str = "X_pca",
@@ -489,7 +491,7 @@ class MetacellModel:
 
     def fit(self, adata=None, max_iter: int = 50, min_iter: int = 10,
             initial_archetypes=None, log_every: int = 10):
-        """Iterate to solve for A, B and write assignments to adata.obs['SEACell']."""
+        """Iterate to solve for A, B and write assignments to adata.obs[METACELL_KEY]."""
         if self.M_ is None:
             if adata is None:
                 raise ValueError("Either adata or a precomputed kernel is required")
@@ -521,8 +523,8 @@ class MetacellModel:
             warn(f"Did not converge in {max_iter} iterations. Increase max_iter or"
                  " reconsider n_metacells")
         if adata is not None:
-            adata.obs["SEACell"] = self.hard_assignments()["SEACell"].values
-        self.balance_ = size_balance(self.hard_assignments()["SEACell"].values)
+            adata.obs[METACELL_KEY] = self.hard_assignments()[METACELL_KEY].values
+        self.balance_ = size_balance(self.hard_assignments()[METACELL_KEY].values)
         if self.verbose:
             b = self.balance_
             log(f"Size distribution: median {b['size_median']:.0f}"
@@ -541,20 +543,20 @@ class MetacellModel:
 
     # --- Output --------------------------------------------------------
     def hard_assignments(self, index=None) -> pd.DataFrame:
-        """Assign by argmax of A (same rule and naming as SEACells)."""
+        """Assign by argmax of A (same rule as SEACells; column/prefix are our own)."""
         if self.A_ is None:
             raise RuntimeError("Call fit() first")
-        lab = [f"SEACell-{i}" for i in self.A_.argmax(0)]
+        lab = [f"{METACELL_PREFIX}{i}" for i in self.A_.argmax(0)]
         if index is None and self._adata is not None:
             index = self._adata.obs_names
-        df = pd.DataFrame({"SEACell": lab},
+        df = pd.DataFrame({METACELL_KEY: lab},
                           index=index if index is not None else np.arange(len(lab)))
         df.index.name = "index"
         return df
 
     def soft_assignments(self, n_top: int = 5):
         A = self.A_.T.copy()
-        names = np.array([f"SEACell-{i}" for i in range(self.k)])
+        names = np.array([f"{METACELL_PREFIX}{i}" for i in range(self.k)])
         labels, weights = [], []
         for _ in range(n_top):
             j = A.argmax(1)
@@ -640,7 +642,7 @@ def diffusion_components(X: np.ndarray, k: int = 30, n_comp: int = 10,
     return vec * scale
 
 
-def compactness(adata, use_rep: str = "X_pca", key: str = "SEACell",
+def compactness(adata, use_rep: str = "X_pca", key: str = METACELL_KEY,
                 space: Literal["diffusion", "pca"] = "diffusion") -> pd.DataFrame:
     """Metacell compactness; lower means cells within it are in more similar states.
 
@@ -656,7 +658,7 @@ def compactness(adata, use_rep: str = "X_pca", key: str = "SEACell",
     return pd.DataFrame({"compactness": out})
 
 
-def separation(adata, use_rep: str = "X_pca", key: str = "SEACell",
+def separation(adata, use_rep: str = "X_pca", key: str = METACELL_KEY,
                nth_nbr: int = 1, cluster: str | None = None,
                space: Literal["diffusion", "pca"] = "diffusion") -> pd.DataFrame:
     """Distance to the nearest other metacell; larger means better separated."""
@@ -678,7 +680,7 @@ def separation(adata, use_rep: str = "X_pca", key: str = "SEACell",
     return res
 
 
-def celltype_purity(adata, col: str, key: str = "SEACell") -> pd.DataFrame:
+def celltype_purity(adata, col: str, key: str = METACELL_KEY) -> pd.DataFrame:
     """The most common label within each metacell, and its fraction."""
     g = adata.obs.groupby(adata.obs[key].astype(str))[col]
     top = g.agg(lambda x: x.value_counts().index[0])

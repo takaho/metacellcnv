@@ -304,7 +304,7 @@ adata_qc.obs["final_doublet"] = rescued.values
 adata_f = adata_qc[~adata_qc.obs["final_doublet"].values].copy()
 
 print("\n########## Step 3: aggregate_to_metacells ##########")
-adata_f.obs["SEACell"] = [f"SEACell-{i % 12}" for i in range(adata_f.n_obs)]
+adata_f.obs["metacell"] = [f"MC-{i % 12}" for i in range(adata_f.n_obs)]
 mc = P.aggregate_to_metacells(adata_f, sample_key="sample_id", celltype_key="cell_type")
 assert mc.n_obs == 12
 assert P.looks_like_raw_counts(mc.layers["counts"])
@@ -453,7 +453,7 @@ for _sd in (0, 1):
     _a = _ad4.copy()
     _m = MC.MetacellModel(n_metacells=30, seed=_sd, verbose=False).fit(
         _a, max_iter=20, min_iter=5)
-    _labs.append(_a.obs["SEACell"].astype(str).values)
+    _labs.append(_a.obs["metacell"].astype(str).values)
 from sklearn.metrics import adjusted_rand_score as _ARI
 _ari = _ARI(_labs[0], _labs[1])
 assert _ari > 0.8, f"solution changes a lot with seed: ARI {_ari}"
@@ -505,19 +505,19 @@ print("  OK: the pipeline does not import SEACells / infercnvpy")
 
 # --- (11) the pipeline's wrapper functions work (names and obs keys stay compatible) ---
 _a = _ad4.copy()
-_mdl = P.build_seacells(_a, cells_per_metacell=40, min_iter=3, max_iter=10,
+_mdl = P.build_metacells(_a, cells_per_metacell=40, min_iter=3, max_iter=10,
                         verbose_iterations=False)
-assert _a.obs["SEACell"].nunique() == 30, _a.obs["SEACell"].nunique()
+assert _a.obs["metacell"].nunique() == 30, _a.obs["metacell"].nunique()
 _met = P.evaluate_metacells(_a, _mdl, celltype_key="truth")
-assert {"SEACell", "compactness", "separation"} <= set(_met.columns), list(_met.columns)
+assert {"metacell", "compactness", "separation"} <= set(_met.columns), list(_met.columns)
 assert len(_met) == 30
 # Passing line_search should still get disabled with a warning
 _a2 = _ad4.copy()
-_m2 = P.build_seacells(_a2, cells_per_metacell=40, min_iter=3, max_iter=6,
+_m2 = P.build_metacells(_a2, cells_per_metacell=40, min_iter=3, max_iter=6,
                        line_search=True, verbose_iterations=False)
 assert _m2.line_search is False, "line search was not disabled"
-print(f"  OK: build_seacells / evaluate_metacells work, and line_search=True is "
-      f"disabled ({_a.obs['SEACell'].nunique()} metacells)")
+print(f"  OK: build_metacells / evaluate_metacells work, and line_search=True is "
+      f"disabled ({_a.obs['metacell'].nunique()} metacells)")
 
 
 print("\n########## v3.1: cnv_native (no infercnvpy dependency) ##########")
@@ -876,7 +876,7 @@ for _c in sorted(_lab.unique()):
     _idx = np.where(_lab.values == _c)[0]
     for _chunk in np.array_split(_idx, max(1, len(_idx) // 40)):
         _mcv[_chunk] = f"MC{_mn}"; _mn += 1
-pd.DataFrame({"SEACell": _mcv}, index=_lab.index).rename_axis("barcode").to_csv(_mc_path)
+pd.DataFrame({"metacell": _mcv}, index=_lab.index).rename_axis("barcode").to_csv(_mc_path)
 _cargs = PS.parse_args(["--containment", str(_mc_path),
                         "--clusters", str(_out_prep / "clusters.tsv.gz")])
 _cres = PS.run_containment(_cargs)
@@ -1531,7 +1531,7 @@ print(f"  OK: vectorized phi / alpha match the loop version"
 _a6a = _ad6.copy(); _a6b = _ad6.copy()
 MC.MetacellModel(n_metacells=30, seed=7, verbose=False).fit(_a6a, max_iter=12, min_iter=4)
 MC.MetacellModel(n_metacells=30, seed=7, verbose=False).fit(_a6b, max_iter=12, min_iter=4)
-assert (_a6a.obs["SEACell"].values == _a6b.obs["SEACell"].values).all()
+assert (_a6a.obs["metacell"].values == _a6b.obs["metacell"].values).all()
 print("  OK: running twice with the same seed produces identical assignments")
 
 print("\n########## v3.7: plotly figures (English labeling) ##########")
@@ -1544,7 +1544,7 @@ _obs7 = pd.DataFrame({
                    "Tumor:Epithelial", "Fibroblast"],
     "putative_malignant": ["normal", "normal", "malignant", "normal"],
     "n_cells": [30, 40, 25, 35], "cnv_score": [0.1, 0.2, 1.5, 0.3],
-}, index=[f"SEACell-{i}" for i in range(4)])
+}, index=[f"MC-{i}" for i in range(4)])
 _lab, _used = PL.resolve_group_labels(_obs7)
 assert _used == "anno_label", _used
 assert not any("Myeloid_" in v for v in _lab), list(_lab)

@@ -82,7 +82,11 @@ from scrna_common import (  # noqa: F401  (re-export)
     CHROMOSOME_MAP_PATH,
     GTF_GENE_ID_ATTR,
     GTF_PATH,
+    LEGACY_METACELL_KEYS,
+    LEGACY_METACELL_PREFIXES,
     MAX_CELLS_WARN,
+    METACELL_KEY,
+    METACELL_PREFIX,
     MITO_CHROMOSOMES,
     MITO_MAX_LENGTH,
     MITO_MAX_NEAR_ZERO,
@@ -124,6 +128,8 @@ from scrna_common import (  # noqa: F401  (re-export)
     normalize_chromosome_names,
     parametric_qc_filter,
     parse_gtf_gene_positions,
+    resolve_metacell_key,
+    strip_metacell_prefix,
     validate_dimensionality,
     warn,
 )
@@ -827,19 +833,21 @@ def rescue_doublets_by_cnv_consistency(
 def load_seacell_assignments(
     adata: ad.AnnData,
     source: str,
-    metacell_key: str = "SEACell",
+    metacell_key: str = METACELL_KEY,
     min_coverage: float = 0.80,
     fill_unmatched: bool = True,
 ) -> int:
-    """Load an existing SEACell/metacell assignment, skipping optimization.
+    """Load an existing SEACell assignment, skipping optimization.
 
     Metacell optimization can take tens of minutes to hours over tens of
     thousands of cells x hundreds of metacells. When only re-running with
     different QC thresholds, the assignment often does not need to be
     rebuilt, so a previous result can be reused.
 
-    `source` is either cell_to_metacell.csv (barcode column + SEACell
-    column) or singlecells_qc.h5ad (obs['SEACell']).
+    `source` is either cell_to_metacell.csv (barcode column + metacell
+    column) or singlecells_qc.h5ad (obs['metacell']). Column names accept
+    both the new "metacell" name and the legacy "SEACell" name, so results
+    from before the rename can still be reused as-is.
 
     Important: matching is done by **barcode**, not row position -- changing
     QC thresholds changes the cell set, so positional alignment would break
@@ -859,10 +867,15 @@ def load_seacell_assignments(
         table = pd.read_csv(path, sep=sep)
         cols = {c.lower(): c for c in table.columns}
         bc_col = cols.get("barcode") or table.columns[0]
-        mc_col = cols.get(metacell_key.lower()) or cols.get("seacell")
+        # Try metacell_key first, then fall back to the legacy name (SEACell)
+        # so a cell_to_metacell.csv built before the rename can still be
+        # reused without a re-run.
+        mc_col = (cols.get(metacell_key.lower())
+                  or cols.get(METACELL_KEY.lower())
+                  or cols.get("seacell"))
         if mc_col is None:
             raise ValueError(
-                f"No SEACell column found in {source}. Columns: {list(table.columns)}"
+                f"No metacell column found in {source}. Columns: {list(table.columns)}"
             )
         mapping = pd.Series(
             table[mc_col].astype(str).values, index=table[bc_col].astype(str).values
@@ -876,9 +889,15 @@ def load_seacell_assignments(
                 b.decode() if isinstance(b, bytes) else str(b)
                 for b in o[o.attrs["_index"]][()]
             ]
-            if metacell_key not in o:
+            # Try metacell_key first, then the legacy name (same reason as the
+            # CSV branch above).
+            actual_key = metacell_key if metacell_key in o else (
+                METACELL_KEY if METACELL_KEY in o else
+                next((k for k in LEGACY_METACELL_KEYS if k in o), metacell_key)
+            )
+            if actual_key not in o:
                 raise ValueError(f"{source}'s obs has no '{metacell_key}' column")
-            node = o[metacell_key]
+            node = o[actual_key]
             if isinstance(node, h5py.Group):
                 cats = [
                     c.decode() if isinstance(c, bytes) else str(c)
@@ -956,7 +975,7 @@ def find_cached_assignments(out_dir: Path, extra: list[Path] | None = None) -> P
     return None
 
 
-def build_seacells(
+def build_metacells(
     adata: ad.AnnData,
     cells_per_metacell: int = CELLS_PER_METACELL,
     min_iter: int = 10,
@@ -969,22 +988,25 @@ def build_seacells(
     seed: int = 0,
     **_ignored,
 ):
-    """Build metacells and assign labels to adata.obs['SEACell'].
+    """Build metacells and assign labels to adata.obs['metacell'].
 
-    Implemented on top of metacells_native.MetacellModel (no SEACells
-    dependency). The function name and obs key are kept for compatibility
-    with existing outputs and downstream scripts.
+    As of v3.1 this is backed by metacells_native.MetacellModel (no SEACells
+    dependency). The function name is a holdover from when it called into
+    the SEACells library -- there is no such dependency any more. The obs
+    key / ID prefix were changed from "SEACell"/"SEACell-N" to
+    "metacell"/"MC-N"; code that reads pre-existing results saved under the
+    old name (load_seacell_assignments, etc.) accepts both.
 
-    `line_search=True` degrades metacell quality and is disabled if passed
-    (see metacells_native.py's docstring for measurements); a warning is
-    logged instead.
+    `line_search=True` degrades metacell quality and must not be used (see
+    the measurements in this module's docstring); a warning is logged and it
+    is disabled instead.
     """
     import time
     import metacells_native as MC
 
     if "X_pca" not in adata.obsm:
         raise KeyError(
-            "obsm['X_pca'] does not exist. Run PCA before build_seacells()."
+            "obsm['X_pca'] does not exist. Run PCA before build_metacells()."
         )
     if line_search:
         warn("Disabling exact line search: it distorts the metacell size distribution "
@@ -1018,7 +1040,7 @@ def build_seacells(
     model.fit(adata, max_iter=max_iter, min_iter=min_iter,
               log_every=1 if verbose_iterations else 10)
     log(f"Optimization complete: {model.n_iter_} iterations / {(time.time() - t0) / 60:.1f} min")
-    log(f"Metacell construction complete: {adata.obs['SEACell'].nunique()} metacells")
+    log(f"Metacell construction complete: {adata.obs[METACELL_KEY].nunique()} metacells")
     return model
 
 
@@ -1034,18 +1056,18 @@ def evaluate_metacells(
     """
     import metacells_native as MC
 
-    metrics = MC.compactness(adata, use_rep="X_pca", key="SEACell").join(
-        MC.separation(adata, use_rep="X_pca", key="SEACell", nth_nbr=1), how="outer")
-    metrics.index.name = "SEACell"
+    metrics = MC.compactness(adata, use_rep="X_pca", key=METACELL_KEY).join(
+        MC.separation(adata, use_rep="X_pca", key=METACELL_KEY, nth_nbr=1), how="outer")
+    metrics.index.name = METACELL_KEY
 
     if celltype_key is not None and celltype_key in adata.obs:
         try:
-            metrics = metrics.join(MC.celltype_purity(adata, celltype_key, key="SEACell"),
+            metrics = metrics.join(MC.celltype_purity(adata, celltype_key, key=METACELL_KEY),
                                    how="outer")
         except Exception as exc:
             warn(f"Failed to compute purity (skipping): {exc}")
 
-    bal = MC.size_balance(adata.obs["SEACell"].astype(str).values)
+    bal = MC.size_balance(adata.obs[METACELL_KEY].astype(str).values)
     log(f"Metacell sizes: median {bal['size_median']:.0f}"
         f" [{bal['size_min']}, {bal['size_max']}] / Gini {bal['gini']:.3f}"
         f" / largest share {bal['max_share']:.2%} / singletons {bal['n_singleton']}")
@@ -1077,7 +1099,7 @@ def find_low_quality_metacells(
     comp_cut = metrics["compactness"].quantile(compactness_quantile)
     sep_cut = metrics["separation"].quantile(separation_quantile)
     mask = (metrics["compactness"] > comp_cut) & (metrics["separation"] < sep_cut)
-    bad = metrics.loc[mask, "SEACell"].astype(str).tolist()
+    bad = metrics.loc[mask, METACELL_KEY].astype(str).tolist()
     n_comp_only = int((metrics["compactness"] > comp_cut).sum())
     log(
         f"Low-quality metacell candidates: {len(bad)}"
@@ -1087,24 +1109,11 @@ def find_low_quality_metacells(
     )
     if bad:
         print(
-            metrics.loc[mask, ["SEACell", "compactness", "separation"]]
+            metrics.loc[mask, [METACELL_KEY, "compactness", "separation"]]
             .sort_values("compactness", ascending=False)
             .to_string(index=False)
         )
     return bad
-
-
-def _as_seacell_frame(obj) -> pd.DataFrame:
-    """Normalize the return value of a metacell evaluation function
-    (DataFrame / Series, sometimes indexed by SEACell) into a DataFrame with
-    a 'SEACell' column (absorbs version differences)."""
-    if isinstance(obj, pd.Series):
-        obj = obj.to_frame()
-    obj = obj.copy()
-    if "SEACell" not in obj.columns:
-        obj.index.name = "SEACell"
-        obj = obj.reset_index()
-    return obj
 
 # ---------------------------------------------------------------------------
 # Step 3. Aggregate raw counts to metacells (sum)
@@ -1112,7 +1121,7 @@ def _as_seacell_frame(obj) -> pd.DataFrame:
 
 def aggregate_to_metacells(
     adata: ad.AnnData,
-    metacell_key: str = "SEACell",
+    metacell_key: str = METACELL_KEY,
     sample_key: str | None = "sample_id",
     celltype_key: str | None = None,
 ) -> ad.AnnData:
@@ -1126,7 +1135,7 @@ def aggregate_to_metacells(
     import scipy.sparse as sp
 
     if metacell_key not in adata.obs:
-        raise KeyError(f"obs['{metacell_key}'] does not exist. Run build_seacells() first.")
+        raise KeyError(f"obs['{metacell_key}'] does not exist. Run build_metacells() first.")
     if "counts" not in adata.layers:
         raise KeyError(
             "layers['counts'] does not exist. load_and_preprocess() is expected to "
@@ -1147,7 +1156,7 @@ def aggregate_to_metacells(
         mask = (groups == mc).values
         agg_matrix[i, :] = counts[mask, :].sum(axis=0)
 
-        row = {"SEACell": mc, "n_cells": int(mask.sum())}
+        row = {metacell_key: mc, "n_cells": int(mask.sum())}
 
         if sample_key is not None and sample_key in adata.obs:
             # Majority vote within the metacell (metacells are ideally built
@@ -1161,7 +1170,7 @@ def aggregate_to_metacells(
 
         obs_rows.append(row)
 
-    obs_df = pd.DataFrame(obs_rows).set_index("SEACell")
+    obs_df = pd.DataFrame(obs_rows).set_index(metacell_key)
     if "n_samples_in_metacell" in obs_df.columns:
         n_mixed = int((obs_df["n_samples_in_metacell"] > 1).sum())
         if n_mixed:
@@ -1210,7 +1219,7 @@ def find_nuclear_mito_genes(adata: ad.AnnData) -> list[str]:
 def detect_expression_imbalance(
     mc_adata: ad.AnnData,
     sc_adata: ad.AnnData | None = None,
-    metacell_key: str = "SEACell",
+    metacell_key: str = METACELL_KEY,
     nmads: float = 3.5,
 ) -> pd.DataFrame:
     """Evaluate mtDNA/nuclear expression balance per metacell and flag anomalies.
@@ -2794,7 +2803,7 @@ def main(argv: list[str] | None = None) -> int:
             if getattr(args, _dead, False):
                 warn(f"--{_dead.replace('_', '-')} has been removed "
                      "(metacell construction no longer depends on SEACells). Ignoring it and continuing")
-        model = build_seacells(
+        model = build_metacells(
             adata,
             cells_per_metacell=cells_per_metacell,
             min_iter=args.seacells_min_iter,
@@ -2812,7 +2821,7 @@ def main(argv: list[str] | None = None) -> int:
     bad_mc = find_low_quality_metacells(metrics, compactness_quantile=args.bad_metacell_quantile)
     if args.drop_bad_metacells and len(bad_mc):
         n_before = adata.n_obs
-        adata = adata[~adata.obs["SEACell"].isin(bad_mc)].copy()
+        adata = adata[~adata.obs[METACELL_KEY].isin(bad_mc)].copy()
         log(
             f"Excluded {len(bad_mc)} low-quality metacell(s)"
             f" ({n_before - adata.n_obs} cells)"
@@ -2820,7 +2829,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # --- Step 3: aggregate to metacells ---
     mc_adata = aggregate_to_metacells(
-        adata, metacell_key="SEACell", sample_key="sample_id", celltype_key="cell_type"
+        adata, metacell_key=METACELL_KEY, sample_key="sample_id", celltype_key="cell_type"
     )
 
     # --- Step 3a-2: write the cell barcode -> metacell membership table ---
@@ -2830,7 +2839,7 @@ def main(argv: list[str] | None = None) -> int:
     # CSV (needed downstream to look up a given metacell's constituent cells).
     membership_cols = [
         c
-        for c in ("SEACell", "sample_id", "coarse_cluster", "cell_type",
+        for c in (METACELL_KEY, "sample_id", "coarse_cluster", "cell_type",
                   "total_counts", "n_genes_by_counts", "pct_counts_mt",
                   "doublet_score")
         if c in adata.obs
@@ -2998,7 +3007,7 @@ def main(argv: list[str] | None = None) -> int:
                 _n_pos = int(pd.notna(adata.var["chromosome"]).sum())
                 log(f"Copied {_n_pos}/{adata.n_vars} genes with coordinates to the single-cell data")
                 _grp = (mc_adata.obs["putative_malignant"].astype(str)
-                        .reindex(adata.obs["SEACell"].astype(str)).values)
+                        .reindex(adata.obs[METACELL_KEY].astype(str)).values)
                 _karyo = _MA.chromosome_karyotype(adata, _grp, "malignant", "normal")
                 log("Karyotype amplitude (mean |per-chromosome log2 ratio|): "
                     f"{_karyo.abs().mean():.4f}")
@@ -3007,7 +3016,7 @@ def main(argv: list[str] | None = None) -> int:
                      "Skipping the mixture call and running only the type call")
 
             _ann = _MA.annotate_metacells(
-                adata, "SEACell",
+                adata, METACELL_KEY,
                 group_key=None, tumor_groups=None,
                 karyotype=_karyo,
                 markers=getattr(args, "markers", "dog"),

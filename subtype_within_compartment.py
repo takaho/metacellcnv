@@ -9,7 +9,7 @@ compartments and classifies subtypes within each compartment.
 
 Usage:
     conda activate scrna-cnv
-    python subtype_within_compartment.py --results-dir <sample>/seacell
+    python subtype_within_compartment.py --results-dir <sample>/results
     # also pass single-cell data when available -- needed to check whether
     # metacells are mixing lineages
 
@@ -62,6 +62,8 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+
+from scrna_common import METACELL_KEY, resolve_metacell_key
 
 C_BLUE, C_ORANGE, C_AQUA, C_RED = "#2a78d6", "#eb6834", "#1baf7a", "#e34948"
 C_GRAY, C_INK, C_INK2 = "#b9b8b2", "#0b0b0b", "#52514e"
@@ -701,11 +703,13 @@ def subtype_within_compartments(mc, panel: dict, state_panel: dict, mc_obs: pd.D
 # ---------------------------------------------------------------------------
 
 def metacell_purity_test(sc_adata, panel: dict, mc_obs: pd.DataFrame, results: Path,
-                         fig_dir: Path, min_gap: float, metacell_key: str = "SEACell",
+                         fig_dir: Path, min_gap: float, metacell_key: str = METACELL_KEY,
                          min_cells: int = 20) -> dict:
     section(T("Test D: do metacells mix lineages?", "Test D: do metacells mix lineages?"))
     import scanpy as sc
 
+    if metacell_key not in sc_adata.obs:
+        metacell_key = resolve_metacell_key(sc_adata.obs.columns)
     if metacell_key not in sc_adata.obs:
         say(f"Skipped: obs['{metacell_key}'] not found.")
         return {}

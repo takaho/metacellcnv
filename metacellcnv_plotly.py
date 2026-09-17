@@ -165,7 +165,9 @@ def fig_scatter_panels(prep_dir: str | Path, results_dir: str | Path, *,
     umap = prep["umap"]
     obs = load_metacell_obs(res)
     c2m = pd.read_csv(res / "cell_to_metacell.csv", index_col=0)
-    mc_col = next((c for c in ("SEACell", "metacell") if c in c2m.columns),
+    # "metacell" is the new name; "SEACell" is kept for compatibility with a
+    # cell_to_metacell.csv written before the rename.
+    mc_col = next((c for c in ("metacell", "SEACell") if c in c2m.columns),
                   c2m.columns[0])
     labels, used = resolve_group_labels(obs)
     labels = prettify_labels(labels)
