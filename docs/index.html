@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="ja">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>metacellcnv 実行ガイド</title>
+<title>metacellcnv User Guide</title>
 <style>
 :root { color-scheme: light; }
 html { background: #ffffff; }
@@ -37,533 +37,533 @@ footer { margin-top: 48px; padding-top: 12px; border-top: 1px solid #dddddd; fon
 </head>
 <body>
 <div class="page">
-<p class="langswitch"><a href="index.en.html">English</a></p>
-<h1 id="metacellcnv">metacellcnv 実行ガイド</h1>
+<p class="langswitch"><a href="index_jp.html">日本語</a></p>
+<h1 id="metacellcnv-user-guide">metacellcnv User Guide</h1>
 <nav class="toc">
 <ul>
-<li class="l2"><a href="#0">0. このガイドの読み方</a></li>
-<li class="l2"><a href="#1">1. 全体像</a></li>
-<li class="l2"><a href="#2">2. 入力の準備</a></li>
-<li class="l2"><a href="#3">3. 参照の選び方(最重要)</a></li>
-<li class="l2"><a href="#4">4. 実行例</a></li>
-<li class="l2"><a href="#5">5. 出力ファイルの意味</a></li>
-<li class="l2"><a href="#6">6. 判定の仕組みと、「参照」の定義</a></li>
-<li class="l3"><a href="#61">6.1 参照とは</a></li>
-<li class="l3"><a href="#62">6.2 腫瘍だけのサンプルでは、参照は何個数えられるか</a></li>
-<li class="l3"><a href="#63-cnv">6.3 「正常」の判定が CNV の構造に支えられているか</a></li>
-<li class="l2"><a href="#7">7. 参照なし・別サンプル参照の信頼性(検証結果)</a></li>
-<li class="l3"><a href="#71">7.1 検証の設計</a></li>
-<li class="l3"><a href="#72">7.2 結果</a></li>
-<li class="l3"><a href="#73">7.3 推奨する運用(確認済みの方針)</a></li>
-<li class="l2"><a href="#8">8. 結果を読むときのチェックリスト</a></li>
-<li class="l2"><a href="#9">9. 既知の限界</a></li>
-<li class="l2"><a href="#10">10. トラブルシュート</a></li>
-<li class="l2"><a href="#_1">付録:再現用の資料</a></li>
+<li class="l2"><a href="#0-how-to-read-this-guide">0. How to read this guide</a></li>
+<li class="l2"><a href="#1-overview">1. Overview</a></li>
+<li class="l2"><a href="#2-preparing-the-input">2. Preparing the input</a></li>
+<li class="l2"><a href="#3-choosing-a-reference-most-important">3. Choosing a reference (most important)</a></li>
+<li class="l2"><a href="#4-run-examples">4. Run examples</a></li>
+<li class="l2"><a href="#5-meaning-of-the-output-files">5. Meaning of the output files</a></li>
+<li class="l2"><a href="#6-how-the-call-works-and-the-definition-of-reference">6. How the call works, and the definition of "reference"</a></li>
+<li class="l3"><a href="#61-what-a-reference-is">6.1 What a reference is</a></li>
+<li class="l3"><a href="#62-how-many-references-can-be-counted-in-tumor-only-samples">6.2 How many references can be counted in tumor-only samples</a></li>
+<li class="l3"><a href="#63-is-the-normal-call-supported-by-cnv-structure">6.3 Is the "normal" call supported by CNV structure?</a></li>
+<li class="l2"><a href="#7-reliability-without-a-reference-or-with-other-samples-as-reference-validation">7. Reliability without a reference or with other samples as reference (validation)</a></li>
+<li class="l3"><a href="#71-design-of-the-validation">7.1 Design of the validation</a></li>
+<li class="l3"><a href="#72-results">7.2 Results</a></li>
+<li class="l3"><a href="#73-recommended-practice-confirmed-policy">7.3 Recommended practice (confirmed policy)</a></li>
+<li class="l2"><a href="#8-checklist-for-reading-results">8. Checklist for reading results</a></li>
+<li class="l2"><a href="#9-known-limitations">9. Known limitations</a></li>
+<li class="l2"><a href="#10-troubleshooting">10. Troubleshooting</a></li>
+<li class="l2"><a href="#appendix-materials-for-reproduction">Appendix: materials for reproduction</a></li>
 </ul>
 </nav>
-<p><strong>Cell Ranger の出力から出発して、どのオプションでどう走らせると、どんな意味の出力が得られるか。</strong></p>
-<p>このガイドは、処理と校正が多段階になったパイプラインを「入力 → 選択 → 出力の意味」の順に整理したものです。
-先に結論だけ知りたい場合は、§3(参照の選び方)と§8(結果を読むときのチェックリスト)を読んでください。</p>
-<p>English version: <a href="index.en.html">index.en.html</a> / <a href="pipeline_guide.en.md">pipeline_guide.en.md</a></p>
-<h2 id="0">0. このガイドの読み方</h2>
+<p><strong>Starting from Cell Ranger output: which options to use, how to run, and what the output then means.</strong></p>
+<p>The pipeline now has several processing and calibration steps. This guide lays them out in the order "input → choice → meaning of the output".
+If you only want the conclusions, read Sec. 3 (choosing a reference) and Sec. 8 (checklist for reading results).</p>
+<p>日本語版: <a href="index_jp.html">index_jp.html</a> / <a href="pipeline_guide.md">pipeline_guide.md</a></p>
+<h2 id="0-how-to-read-this-guide">0. How to read this guide</h2>
 <ul>
-<li><strong>対象の版</strong>: 作業版の <code>metacellcnv.py</code>(2026-09-29 時点)。オプション名・既定値は <code>--help</code> と実コードで確認しています。</li>
-<li><strong>†</strong>: 公開リポジトリ(2026-09-17 時点のコミット)にまだ入っていない、作業版のオプション。該当するのは <code>--sample-kind</code>、<code>--cnv-reference external</code>、<code>--cnv-external-reference</code> と、外部参照を作る <code>build_external_cnv_reference.py</code> です。</li>
-<li><strong>状態の表記</strong>: 各項目は次のいずれかです。<ul>
-<li><strong>[実装済み]</strong>: パイプラインのオプションとして使える。</li>
-<li><strong>[検証済み・未実装]</strong>: 実データで効果を測ったが、パイプラインには組み込んでいない(§7)。</li>
-<li><strong>[未検証]</strong>: 未確認。</li>
+<li><strong>Version covered</strong>: the working version of <code>metacellcnv.py</code> (as of 2026-09-29). Option names and defaults were checked against <code>--help</code> and the code.</li>
+<li><strong>†</strong>: options that are not yet in the public repository (commit of 2026-09-17), only in the working version. These are <code>--sample-kind</code>, <code>--cnv-reference external</code>, <code>--cnv-external-reference</code>, and <code>build_external_cnv_reference.py</code>, which builds the external reference.</li>
+<li><strong>Status tags</strong>: each item is one of the following.<ul>
+<li><strong>[implemented]</strong>: usable as a pipeline option.</li>
+<li><strong>[validated, not implemented]</strong>: tested on real data but not built into the pipeline (Sec. 7).</li>
+<li><strong>[untested]</strong>: not checked.</li>
 </ul>
 </li>
-<li>環境の用意は <a href="https://github.com/takaho/metacellcnv/blob/main/INSTALL.md">INSTALL.md</a> を参照してください(Python 3.10 以上、scanpy など)。</li>
+<li>For the environment, see <a href="https://github.com/takaho/metacellcnv/blob/main/INSTALL.md">INSTALL.md</a> (Python 3.10 or later, scanpy, etc.).</li>
 </ul>
-<h2 id="1">1. 全体像</h2>
+<h2 id="1-overview">1. Overview</h2>
 <figure>
-<a href="img/fig1_pipeline_flow.svg"><img src="img/fig1_pipeline_flow.svg" alt="パイプラインの流れと各段階のオプション"></a>
-<figcaption><b>図1. パイプラインの流れと、各段階で効くオプション。</b>
-左の青い箱が処理段階、右の等幅文字がその段階で効くオプション。波括弧 <code>{a|b}</code> は選択肢、†は作業版のみ。
-④の「参照」の選び方が、出力の意味をもっとも大きく変える(図2、§3)。</figcaption>
+<a href="img/en/fig1_pipeline_flow.svg"><img src="img/en/fig1_pipeline_flow.svg" alt="Pipeline flow and the options at each stage"></a>
+<figcaption><b>Figure 1. Pipeline flow and the options that matter at each stage.</b>
+Blue boxes on the left are processing stages; monospace text on the right lists the options that act at that stage. Braces <code>{a|b}</code> are choices; † = working version only.
+The choice of reference in stage 4 changes the meaning of the output more than anything else (Fig. 2, Sec. 3).</figcaption>
 </figure>
 
-<p>パイプラインの考え方は次の通りです。</p>
+<p>The idea of the pipeline is as follows.</p>
 <ol>
-<li>細胞を <strong>metacell</strong>(近い細胞の束)にまとめてノイズを減らす。</li>
-<li>metacell ごとに、<strong>参照</strong>との遺伝子発現の差を、染色体上の位置順に窓移動平均して <strong>CNV</strong>(コピー数変化)の推定値にする。</li>
-<li>CNV の大きさ(<code>cnv_score</code>)でクローン(<code>cnv_leiden</code>)を悪性 / 正常に分ける。</li>
+<li>Cells are pooled into <strong>metacells</strong> (bundles of similar cells) to reduce noise.</li>
+<li>For each metacell, the gene-expression difference from a <strong>reference</strong> is averaged with a running window along the chromosome and turned into a <strong>CNV</strong> (copy-number change) estimate.</li>
+<li>Clones (<code>cnv_leiden</code>) are split into malignant and normal by the size of the CNV (<code>cnv_score</code>).</li>
 </ol>
-<p>つまり、<strong>参照が何であるかが、そのまま「CNV とは何に対する増減か」を決めます</strong>。</p>
-<h2 id="2">2. 入力の準備</h2>
+<p>In other words, <strong>what the reference is decides what "CNV" is relative to.</strong></p>
+<h2 id="2-preparing-the-input">2. Preparing the input</h2>
 <div class="tablewrap"><table>
 <thead>
 <tr>
-<th>入力</th>
-<th>指定するオプション</th>
-<th>要点</th>
+<th>Input</th>
+<th>Option</th>
+<th>Key points</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>Cell Ranger 出力</td>
+<td>Cell Ranger output</td>
 <td><code>--cellranger-dir</code></td>
-<td><code>filtered_feature_bc_matrix/</code>(<code>matrix.mtx</code>、<code>barcodes.tsv</code>、<code>features.tsv</code> または <code>genes.tsv</code>。gzip の有無は問わない)。複数指定でき、その場合は <code>--sample-id</code> を同じ数だけ並べる</td>
+<td><code>filtered_feature_bc_matrix/</code> (<code>matrix.mtx</code>, <code>barcodes.tsv</code>, <code>features.tsv</code> or <code>genes.tsv</code>; gzip or not). Several can be given; then give the same number of <code>--sample-id</code> values</td>
 </tr>
 <tr>
-<td>遺伝子座標</td>
-<td><code>--gtf</code>、<code>--gtf-gene-id auto</code></td>
-<td>参照ゲノムと一致する GTF。遺伝子名の属性キーは GENCODE が <code>gene_name</code>、NCBI RefSeq が <code>gene</code>。<code>auto</code> で自動検出</td>
+<td>Gene coordinates</td>
+<td><code>--gtf</code>, <code>--gtf-gene-id auto</code></td>
+<td>A GTF that matches the reference genome. The gene-name attribute is <code>gene_name</code> in GENCODE and <code>gene</code> in NCBI RefSeq. <code>auto</code> detects it</td>
 </tr>
 <tr>
-<td>染色体名の変換</td>
+<td>Chromosome names</td>
 <td><code>--chromosome-map</code></td>
-<td>RefSeq の <code>NC_…</code> を <code>chr1…</code> に直す NCBI assembly report。GENCODE(<code>chr1…</code>)なら不要</td>
+<td>An NCBI assembly report that converts RefSeq <code>NC_...</code> to <code>chr1...</code>. Not needed for GENCODE (<code>chr1...</code>)</td>
 </tr>
 <tr>
-<td>ミトコンドリア</td>
+<td>Mitochondria</td>
 <td><code>--mito-chromosome</code></td>
-<td>mtDNA の配列 ID。既知 ID(<code>chrM</code>、<code>MT</code>、<code>NC_002008.4</code> など)と GTF からの自動検出が既定で効く。イヌ CanFam6 は <code>NC_002008.4</code></td>
+<td>Sequence ID of mtDNA. Known IDs (<code>chrM</code>, <code>MT</code>, <code>NC_002008.4</code>, ...) and detection from the GTF work by default. Dog CanFam6 is <code>NC_002008.4</code></td>
 </tr>
 <tr>
-<td>細胞型マーカー表</td>
-<td><code>--markers {dog,human,mouse,CSVのパス}</code></td>
-<td>既定は <code>dog</code>。実データで検証済みなのは dog の Macrophage / Endothelial / Fibroblast / Epithelial の 4 パネルだけで、それ以外と human・mouse の表は命名の変換のみ(未検証のパネルでラベルを付けると警告が出る)</td>
+<td>Cell-type marker table</td>
+<td><code>--markers {dog,human,mouse,CSV path}</code></td>
+<td>Default is <code>dog</code>. Only four dog panels (Macrophage / Endothelial / Fibroblast / Epithelial) have been validated on real data; the other panels and the human and mouse tables only had their naming converted (a warning appears when an unvalidated panel assigns a label)</td>
 </tr>
 </tbody>
 </table></div>
-<p>実行の前に、入力の食い違いを次のコマンドで検査できます(重い処理は行いません)。</p>
+<p>Before a run, you can check the inputs for inconsistencies with the command below (no heavy processing is done).</p>
 <pre><code class="language-bash">python metacellcnv.py --cellranger-dir &lt;sample&gt;/outs/filtered_feature_bc_matrix \
   --gtf genes.gtf --gtf-gene-id auto --markers human --preflight-only
 </code></pre>
-<p>検査するのは、必要ファイルの有無、遺伝子名と GTF の一致率、mtDNA 遺伝子の有無、マーカー遺伝子の有無、染色体名です。
-一致率が低いときは <code>--gtf-gene-id</code> の値を疑ってください。</p>
-<h2 id="3">3. 参照の選び方(最重要)</h2>
+<p>It checks for the required files, the match rate between gene names and the GTF, the presence of mtDNA genes, the presence of marker genes, and chromosome names.
+If the match rate is low, suspect the value of <code>--gtf-gene-id</code>.</p>
+<h2 id="3-choosing-a-reference-most-important">3. Choosing a reference (most important)</h2>
 <figure>
-<a href="img/fig2_reference_choice.svg"><img src="img/fig2_reference_choice.svg" alt="サンプルに応じた参照の選び方"></a>
-<figcaption><b>図2. サンプルに応じた「参照」の選び方と、得られる出力の意味。</b>
-左の質問に「はい」なら右の方式(A〜C)、すべて「いいえ」なら D。
-色は、A(緑)が最も確かで、D(赤)が最も制約が大きいことを表す。</figcaption>
+<a href="img/en/fig2_reference_choice.svg"><img src="img/en/fig2_reference_choice.svg" alt="Choosing a reference for your sample"></a>
+<figcaption><b>Figure 2. Choosing a reference for your sample, and what the output then means.</b>
+Answer "yes" to a question on the left to take the method on the right (A to C); if all answers are "no", use D.
+Colors indicate confidence: A (green) is the most reliable, D (red) the most limited.</figcaption>
 </figure>
 
-<p><strong>表1. 参照の方式と、出力の意味</strong></p>
+<p><strong>Table 1. Reference methods and the meaning of the output</strong></p>
 <div class="tablewrap"><table>
 <thead>
 <tr>
-<th>方式</th>
-<th>主なオプション</th>
-<th>CNV の意味</th>
-<th>失われるもの / 注意</th>
+<th>Method</th>
+<th>Main options</th>
+<th>Meaning of CNV</th>
+<th>What is lost / caution</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>A. サンプル内の正常細胞を参照(既定)</td>
+<td>A. Normal cells in the sample as reference (default)</td>
 <td><code>--cnv-reference celltype</code></td>
-<td>正常参照に対する増減(絶対的な CNV)</td>
-<td>参照が少ないと閾値が不安定(§6)</td>
+<td>Gain/loss relative to the normal reference (absolute CNV)</td>
+<td>With few references the threshold is unstable (Sec. 6)</td>
 </tr>
 <tr>
-<td>B. 正常と分かっているクラスタを指定</td>
-<td><code>--normal-clusters 3,7</code>、<code>--normal-celltype Fibroblast</code></td>
-<td>A と同じ</td>
-<td>指定したクラスタが本当に正常かは利用者の責任。Fibroblast / Epithelial は腫瘍そのものになりうるため、既定では参照にしない</td>
+<td>B. Name clusters known to be normal</td>
+<td><code>--normal-clusters 3,7</code>, <code>--normal-celltype Fibroblast</code></td>
+<td>Same as A</td>
+<td>Whether the named clusters are really normal is your responsibility. Fibroblast / Epithelial can be the tumor itself, so they are not references by default</td>
 </tr>
 <tr>
-<td>C. 別サンプルを参照(†)</td>
+<td>C. Other samples as reference (†)</td>
 <td><code>--cnv-reference external --cnv-external-reference &lt;CSV&gt;</code></td>
-<td>別サンプルに対する増減。サンプル間のずれが混入する</td>
-<td>精度は中程度(§7)。結果には必ず注釈を付ける</td>
+<td>Gain/loss relative to other samples; between-sample shifts leak in</td>
+<td>Medium accuracy (Sec. 7). Always annotate the result</td>
 </tr>
 <tr>
-<td>D. 全 metacell の平均を参照</td>
-<td><code>--cnv-reference none</code>(単一株は <code>--sample-kind cell-line</code>†)</td>
-<td>サブクローン間の<strong>相対差</strong>だけ</td>
-<td>均一なクローン全体の CNV は基準と同じ値になり、消える</td>
+<td>D. Mean of all metacells as reference</td>
+<td><code>--cnv-reference none</code> (single line: <code>--sample-kind cell-line</code>†)</td>
+<td>Only the <strong>relative difference</strong> between subclones</td>
+<td>CNV shared by a uniform clone equals the baseline and disappears</td>
 </tr>
 </tbody>
 </table></div>
-<p>補足として、次の四点を押さえてください。</p>
+<p>Keep the following four points in mind.</p>
 <ul>
-<li><strong>参照が 1 個もない</strong>まま <code>--cnv-reference celltype</code>(既定)で走らせると、「正常参照が確保できません」で実行が止まります。腫瘍だけのサンプルでは <code>--cnv-reference none</code> を明示してください(止まるときのメッセージには、<code>--normal-clusters</code>、<code>--normal-celltype</code>、<code>--cnv-refine</code> も案内されます。<code>--cnv-refine</code> は 1 パス目で CNV が平坦だったクローンを参照にし直す方式で、均一な腫瘍には平坦なクローンがないため使えません)。</li>
-<li><strong>参照が 3 個未満</strong>のとき、悪性判定は自動で gap 法(クローン中央値の最大ギャップで二分)に切り替わります。明確な二峰性がなければ判定を放棄し、全 metacell が <code>unassigned</code> になります。<ul>
-<li><strong>ただし CNV クローンが 2 個だけのときは、最大ギャップが必ずレンジの 100% になるため、判定が放棄されません。</strong></li>
-<li>SNU-638(細胞株で全細胞が腫瘍)を <code>--cnv-reference none</code> で実行したところ、11 metacell が悪性 4 個・正常 7 個に分かれました。クローン中央値の差は 0.065 しかなく、<code>cnv_score</code> の範囲は両群で重なっていました(0.70〜1.30 と 0.88〜1.34)。</li>
-<li><code>INTERPRETATION_CAVEATS.txt</code> の総合判定も「重大な問題は検出されていません」と出ます。</li>
-<li><strong>参照のない実行の <code>putative_malignant</code> は、腫瘍と正常の区別ではありません</strong>。<code>cnv_score</code> による内部の二分に過ぎず、DE に使ってはいけません。</li>
+<li>If there is <strong>not a single reference</strong> and you run with <code>--cnv-reference celltype</code> (default), the run stops with "正常参照が確保できません" (normal reference cannot be secured). For tumor-only samples, specify <code>--cnv-reference none</code> explicitly. (The message also suggests <code>--normal-clusters</code>, <code>--normal-celltype</code>, and <code>--cnv-refine</code>. <code>--cnv-refine</code> re-uses clones that were flat in the first pass as the reference; a uniform tumor has no flat clone, so it cannot be used.)</li>
+<li>With <strong>fewer than 3 references</strong>, the malignant call switches automatically to the gap method (split at the largest gap between clone medians). If there is no clear bimodality, the call is abandoned and all metacells become <code>unassigned</code>.<ul>
+<li><strong>However, with only 2 CNV clones the largest gap is always 100% of the range, so the call is never abandoned.</strong></li>
+<li>SNU-638 (a cell line, all cells tumor) run with <code>--cnv-reference none</code> split 11 metacells into 4 malignant and 7 normal. The clone medians differ by only 0.065, and the <code>cnv_score</code> ranges of the two groups overlap (0.70-1.30 and 0.88-1.34).</li>
+<li>The overall verdict in <code>INTERPRETATION_CAVEATS.txt</code> also says "no serious problem detected".</li>
+<li><strong>In a run without a reference, <code>putative_malignant</code> is not a tumor vs normal distinction.</strong> It is only an internal split by <code>cnv_score</code> and must not be used for DE.</li>
 </ul>
 </li>
-<li><code>--sample-kind auto</code>(†、既定)は、参照 metacell が 3 個未満なら単一株相当とみなして DE をスキップします。CNV の判定自体はスキップされません。</li>
-<li>判定に使う参照の定義と、腫瘍だけのサンプルで何個数えられるかは §6 にまとめました。</li>
+<li><code>--sample-kind auto</code> (†, default) treats the sample as a single line and skips DE when there are fewer than 3 reference metacells. The CNV call itself is not skipped.</li>
+<li>The definition of the reference used for the call, and how many can be counted in tumor-only samples, is in Sec. 6.</li>
 </ul>
-<h2 id="4">4. 実行例</h2>
-<p>最小限の流れは「検査 → 本体 → 可視化」の三段です。以下の <code>&lt;…&gt;</code> は自分の環境に置き換えてください。</p>
-<p><strong>表2. 状況別の実行例</strong></p>
+<h2 id="4-run-examples">4. Run examples</h2>
+<p>The minimal flow has three steps: check, main run, plots. Replace <code>&lt;...&gt;</code> with your own values.</p>
+<p><strong>Table 2. Run examples by situation</strong></p>
 <div class="tablewrap"><table>
 <thead>
 <tr>
-<th>状況</th>
-<th>コマンド(要点のみ)</th>
+<th>Situation</th>
+<th>Command (essentials only)</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>イヌの腫瘍組織(免疫細胞などの正常細胞を含む)</td>
+<td>Dog tumor tissue (with normal cells such as immune cells)</td>
 <td><code>python metacellcnv.py --cellranger-dir &lt;dir&gt; --gtf &lt;refseq.gtf&gt; --gtf-gene-id gene --chromosome-map &lt;assembly_report.txt&gt; --mito-chromosome NC_002008.4 --markers dog --out-dir results/&lt;sample&gt;</code></td>
 </tr>
 <tr>
-<td>ヒトの細胞株(腫瘍のみ・単一株)</td>
+<td>Human cell line (tumor only, single line)</td>
 <td><code>python metacellcnv.py --cellranger-dir &lt;dir&gt; --gtf gencode.v50.annotation.gtf --gtf-gene-id auto --markers human --cnv-reference none --out-dir results/&lt;sample&gt;</code></td>
 </tr>
 <tr>
-<td>参照だけを替えて再解析(metacell は再利用)</td>
-<td>上のコマンドに <code>--seacell-assignments results/&lt;sample&gt;/cell_to_metacell.csv</code> と、別の <code>--cnv-reference</code> を付けて別の <code>--out-dir</code> に出す</td>
+<td>Re-analyze with a different reference only (reuse metacells)</td>
+<td>Add <code>--seacell-assignments results/&lt;sample&gt;/cell_to_metacell.csv</code> and a different <code>--cnv-reference</code> to the command above, and write to a different <code>--out-dir</code></td>
 </tr>
 <tr>
-<td>別サンプルを参照にする(†)</td>
-<td>先に <code>python build_external_cnv_reference.py --cellranger-dir &lt;参照1&gt; --cellranger-dir &lt;参照2&gt; --out ref.csv</code> で擬似バルク参照を作り、本体に <code>--cnv-reference external --cnv-external-reference ref.csv</code> を付ける</td>
+<td>Use other samples as reference (†)</td>
+<td>First build a pseudo-bulk reference with <code>python build_external_cnv_reference.py --cellranger-dir &lt;ref1&gt; --cellranger-dir &lt;ref2&gt; --out ref.csv</code>, then add <code>--cnv-reference external --cnv-external-reference ref.csv</code> to the main run</td>
 </tr>
 <tr>
-<td>系譜も出す</td>
-<td>本体に <code>--lineage</code>(欠失事象のみを使う。既定 <code>--lineage-events loss</code>)</td>
+<td>Also output lineage</td>
+<td>Add <code>--lineage</code> (uses loss events only; default <code>--lineage-events loss</code>)</td>
 </tr>
 <tr>
-<td>図とレポート</td>
+<td>Plots and report</td>
 <td><code>python metacellcnv.py --visualize --results-dir results/&lt;sample&gt; [--prep-dir prep/&lt;sample&gt;]</code></td>
 </tr>
 </tbody>
 </table></div>
-<p>実行の前後で、次の習慣を勧めます。</p>
+<p>Habits recommended before and after a run:</p>
 <ol>
-<li><strong>参照を替える比較は、必ず metacell を再利用する</strong>(<code>--seacell-assignments</code>)。metacell の構成が揃うので、差が参照の違いだけになります。</li>
-<li><strong>出力ディレクトリはオプションの組ごとに分ける</strong>。<code>INTERPRETATION_CAVEATS.txt</code> と <code>malignant_call.txt</code> は実行ごとに内容が変わります。</li>
-<li>参照が 24 個のように少ないときは、<code>malignant_call.txt</code> に出る閾値と参照の <code>cnv_score</code> の分布(図6、図7の(a))を見てから結論を書く。</li>
+<li><strong>When comparing references, always reuse the metacells</strong> (<code>--seacell-assignments</code>). The metacell composition is then identical, so the only difference is the reference.</li>
+<li><strong>Use a separate output directory for each set of options.</strong> <code>INTERPRETATION_CAVEATS.txt</code> and <code>malignant_call.txt</code> change with every run.</li>
+<li>When references are few (e.g. 24), look at the threshold in <code>malignant_call.txt</code> and the distribution of the reference <code>cnv_score</code> (Figs. 6 and 7, panel (a)) before writing conclusions.</li>
 </ol>
-<h2 id="5">5. 出力ファイルの意味</h2>
-<p><strong>表3. 出力ファイル(<code>--out-dir</code> 直下)</strong></p>
+<h2 id="5-meaning-of-the-output-files">5. Meaning of the output files</h2>
+<p><strong>Table 3. Output files (directly under <code>--out-dir</code>)</strong></p>
 <div class="tablewrap"><table>
 <thead>
 <tr>
-<th>ファイル</th>
-<th>内容</th>
-<th>読み方の要点</th>
+<th>File</th>
+<th>Content</th>
+<th>Key points for reading</th>
 </tr>
 </thead>
 <tbody>
 <tr>
 <td><code>metacell_obs.csv</code></td>
-<td>metacell ごとの表</td>
-<td>下の表4を参照</td>
+<td>Per-metacell table</td>
+<td>See Table 4 below</td>
 </tr>
 <tr>
 <td><code>malignant_call.txt</code></td>
-<td>悪性判定の方法と根拠を 1 行で</td>
-<td>方法(reference 法 / gap 法)と閾値が書かれる</td>
+<td>Method and basis of the malignant call, in one line</td>
+<td>States the method (reference or gap method) and the threshold</td>
 </tr>
 <tr>
 <td><code>INTERPRETATION_CAVEATS.txt</code></td>
-<td>この実行に固有の注意</td>
-<td><strong>必読</strong>。複数検体を並べるときは各検体のものを読み比べる</td>
+<td>Cautions specific to this run</td>
+<td><strong>Must read.</strong> When comparing several samples, read the one from each sample</td>
 </tr>
 <tr>
 <td><code>cnv_metacells.h5ad</code></td>
-<td>metacell × 窓の CNV 行列</td>
-<td><code>obsm['X_cnv']</code> に CNV(スパース。動的閾値で小さい値は 0)、<code>uns['cnv']['chr_pos']</code> に染色体ごとの窓の開始位置</td>
+<td>metacell x window CNV matrix</td>
+<td><code>obsm['X_cnv']</code> holds the CNV (sparse; small values are set to 0 by a dynamic threshold); <code>uns['cnv']['chr_pos']</code> holds the start of the windows of each chromosome</td>
 </tr>
 <tr>
 <td><code>clone_chromosome_profiles.csv</code></td>
-<td>クローン × 染色体の平均 CNV</td>
-<td>図のヒートマップの元表。<code>--cnv-refine</code> を付けた場合は <code>_refined</code> 版も出る</td>
+<td>Mean CNV per clone x chromosome</td>
+<td>Source table of the heatmap. With <code>--cnv-refine</code>, a <code>_refined</code> version is also written</td>
 </tr>
 <tr>
 <td><code>cell_to_metacell.csv</code></td>
-<td>バーコード → metacell の対応</td>
-<td>再利用(<code>--seacell-assignments</code>)にも使う</td>
+<td>Barcode → metacell mapping</td>
+<td>Also used for reuse (<code>--seacell-assignments</code>)</td>
 </tr>
 <tr>
-<td><code>metacells.h5ad</code>、<code>singlecells_qc.h5ad</code></td>
-<td>metacell 集約後 / QC 後の単一細胞データ</td>
-<td>後者は大きい</td>
+<td><code>metacells.h5ad</code>, <code>singlecells_qc.h5ad</code></td>
+<td>Single-cell data after metacell aggregation / after QC</td>
+<td>The latter is large</td>
 </tr>
 <tr>
-<td><code>qc_metrics.csv</code>、<code>metacell_metrics.csv</code>、<code>metacell_mito_qc.csv</code>、<code>mito_gene_profile.csv</code></td>
-<td>QC と mtDNA の検査結果</td>
-<td>mtDNA 構成が不自然な検体は <code>--no-pctmt-filter</code> を検討</td>
+<td><code>qc_metrics.csv</code>, <code>metacell_metrics.csv</code>, <code>metacell_mito_qc.csv</code>, <code>mito_gene_profile.csv</code></td>
+<td>QC and mtDNA check results</td>
+<td>For a sample with an unnatural mtDNA composition, consider <code>--no-pctmt-filter</code></td>
 </tr>
 <tr>
 <td><code>de_malignant_vs_normal.csv</code></td>
-<td>悪性 vs 正常の DE</td>
-<td>単一検体の metacell は擬似反復で、p 値は推論に使えない。群が CNV で決まるため循環性もある</td>
+<td>DE of malignant vs normal</td>
+<td>Metacells from one sample are pseudo-replicates, so p-values cannot be used for inference. The groups are defined by CNV, so it is also circular</td>
 </tr>
 <tr>
-<td><code>cnv_lineage.nwk</code>、<code>cnv_lineage_branches.csv</code>、<code>cnv_lineage_events.csv</code>、<code>cnv_lineage_report.json</code></td>
-<td>系譜(<code>--lineage</code> 時のみ)</td>
-<td><code>has_structure</code> が偽なら、木を系譜として読んではいけない</td>
+<td><code>cnv_lineage.nwk</code>, <code>cnv_lineage_branches.csv</code>, <code>cnv_lineage_events.csv</code>, <code>cnv_lineage_report.json</code></td>
+<td>Lineage (only with <code>--lineage</code>)</td>
+<td>If <code>has_structure</code> is false, do not read the tree as a lineage</td>
 </tr>
 <tr>
 <td><code>environment.lock.txt</code></td>
-<td>実行環境の記録</td>
-<td>再現のために保管</td>
+<td>Record of the run environment</td>
+<td>Keep for reproducibility</td>
 </tr>
 </tbody>
 </table></div>
-<p><strong>表4. <code>metacell_obs.csv</code> の主な列</strong></p>
+<p><strong>Table 4. Main columns of <code>metacell_obs.csv</code></strong></p>
 <div class="tablewrap"><table>
 <thead>
 <tr>
-<th>列</th>
-<th>意味</th>
+<th>Column</th>
+<th>Meaning</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>n_cells</code>、<code>sample_id</code></td>
-<td>metacell を作る細胞数、由来サンプル</td>
+<td><code>n_cells</code>, <code>sample_id</code></td>
+<td>Number of cells in the metacell, sample of origin</td>
 </tr>
 <tr>
 <td><code>cell_type</code></td>
-<td>マーカーによる細胞型。<code>Myeloid_0</code> のように粗クラスタ番号が付く。<strong>参照かどうかの判定に使われる</strong></td>
+<td>Marker-based cell type, with the coarse-cluster number as in <code>Myeloid_0</code>. <strong>Used to decide whether a metacell is a reference</strong></td>
 </tr>
 <tr>
 <td><code>cnv_score</code></td>
-<td>CNV プロファイルの L2 ノルム。大きいほど参照からのずれが大きい</td>
+<td>L2 norm of the CNV profile. Larger = further from the reference</td>
 </tr>
 <tr>
 <td><code>cnv_leiden</code></td>
-<td>CNV で分けたクローン。悪性 / 正常の判定はこの単位</td>
+<td>Clone defined by CNV. The malignant / normal call is made per clone</td>
 </tr>
 <tr>
 <td><code>putative_malignant</code></td>
-<td><code>malignant</code> / <code>normal</code> / <code>unassigned</code>。<code>normal</code> は「参照と区別できない」の意味。<strong>参照なしの実行(gap 法)では、腫瘍と正常の区別ではなく <code>cnv_score</code> の内部の二分</strong></td>
+<td><code>malignant</code> / <code>normal</code> / <code>unassigned</code>. <code>normal</code> means "indistinguishable from the reference". <strong>In runs without a reference (gap method) this is an internal split by <code>cnv_score</code>, not tumor vs normal</strong></td>
 </tr>
 <tr>
-<td><code>mito_*</code>、<code>ratio_outlier</code> ほか</td>
-<td>mtDNA 由来の品質フラグ</td>
+<td><code>mito_*</code>, <code>ratio_outlier</code>, etc.</td>
+<td>Quality flags derived from mtDNA</td>
 </tr>
 </tbody>
 </table></div>
-<h2 id="6">6. 判定の仕組みと、「参照」の定義</h2>
-<h3 id="61">6.1 参照とは</h3>
-<p><strong>参照</strong>は、マーカー遺伝子による細胞型注釈で「既知の正常細胞型」と判定されたクラスタの metacell です。</p>
+<h2 id="6-how-the-call-works-and-the-definition-of-reference">6. How the call works, and the definition of "reference"</h2>
+<h3 id="61-what-a-reference-is">6.1 What a reference is</h3>
+<p>A <strong>reference</strong> is a metacell in a cluster that the marker-based cell-type annotation called a "known normal cell type".</p>
 <ol>
-<li>粗クラスタ(Leiden)ごとに、マーカーセットのスコアを計算します。</li>
-<li>1 位と 2 位のスコア差(<code>--marker-min-margin</code>、既定 0.02)と、クラスタ内 z(<code>--marker-min-within-z</code>、既定 2.0)がともに閾値を超えたときだけ、その型を付けます。満たさなければ <code>Other</code> です。</li>
-<li>型が「正常参照に使う型」(マーカー表の <code>use_as_normal_reference</code>)なら、その metacell が参照です。<code>--markers dog|human|mouse</code> の表では、T/NK、B、Plasma、Myeloid、Macrophage、Mast、Endothelial、SmoothMuscle、Leukocyte の 9 型が参照に使えます。Fibroblast と Epithelial は入りません(<code>--normal-celltype</code> で追加できます)。</li>
+<li>For each coarse cluster (Leiden), the score of each marker set is computed.</li>
+<li>A type is assigned only when both the gap between the first and second scores (<code>--marker-min-margin</code>, default 0.02) and the within-cluster z (<code>--marker-min-within-z</code>, default 2.0) exceed their thresholds. Otherwise the label is <code>Other</code>.</li>
+<li>If the type is one "used as normal reference" (<code>use_as_normal_reference</code> in the marker table), its metacells are references. In the <code>--markers dog|human|mouse</code> tables, nine types can be references: T/NK, B, Plasma, Myeloid, Macrophage, Mast, Endothelial, SmoothMuscle, and Leukocyte. Fibroblast and Epithelial are not included (they can be added with <code>--normal-celltype</code>).</li>
 </ol>
-<p>同じ参照集合が二か所で使われます。</p>
+<p>The same reference set is used in two places.</p>
 <ul>
-<li><strong>CNV の基準</strong>: 参照の平均発現を基準に、全 metacell の CNV を計算する。参照が 2 カテゴリ以上なら、参照の最小〜最大の範囲内を 0 とみなす方式(bounded)になる。</li>
-<li><strong>悪性判定の閾値</strong>: 参照 metacell 自身の <code>cnv_score</code> の平均 + 3SD(<code>--malignant-n-sd</code>)。クローン中央値がこれを超えれば悪性。</li>
+<li><strong>CNV baseline</strong>: CNV of all metacells is computed against the mean expression of the references. With two or more reference categories, the method becomes "bounded": values inside the min-max range of the references count as 0.</li>
+<li><strong>Threshold of the malignant call</strong>: mean + 3 SD (<code>--malignant-n-sd</code>) of the <code>cnv_score</code> of the reference metacells themselves. A clone whose median exceeds it is malignant.</li>
 </ul>
-<p>参照は<strong>発現マーカーで「正常らしい」と推定した細胞</strong>であり、遺伝的に確認された正常細胞ではありません。
-骨髄系の腫瘍のように、腫瘍そのものが参照型の細胞に見える場合は、CNV が参照と一緒に打ち消されて見えなくなります。</p>
-<h3 id="62">6.2 腫瘍だけのサンプルでは、参照は何個数えられるか</h3>
+<p>A reference is a set of cells <strong>inferred to be normal from expression markers</strong>, not cells confirmed to be normal genetically.
+If the tumor itself looks like a reference type, as in a myeloid tumor, its CNV is cancelled together with the reference and becomes invisible.</p>
+<h3 id="62-how-many-references-can-be-counted-in-tumor-only-samples">6.2 How many references can be counted in tumor-only samples</h3>
 <figure>
-<a href="img/fig5_tumor_only_reference_count.png"><img src="img/fig5_tumor_only_reference_count.png" alt="腫瘍のみ11サンプルでの細胞型ラベルと参照数"></a>
-<figcaption><b>図5. 腫瘍細胞だけを含む 11 サンプル(GSE142750、ヒト胃がん細胞株)に付いた細胞型ラベル。</b>
-横軸は細胞数、色はラベル(青 Epithelial、橙 Fibroblast、灰 Other)。縦軸の [ ] 内は、参照型マーカー遺伝子 102 個のうちデータに存在した数。
-参照型(T/NK、B、Myeloid など)と判定された細胞は 28,397 個中 0 個、metacell は 372 個中 0 個だった。</figcaption>
+<a href="img/en/fig5_tumor_only_reference_count.png"><img src="img/en/fig5_tumor_only_reference_count.png" alt="Cell-type labels and reference counts in 11 tumor-only samples"></a>
+<figcaption><b>Figure 5. Cell-type labels assigned in 11 samples containing only tumor cells (GSE142750, human gastric cancer cell lines).</b>
+The x-axis is the number of cells, and colors are labels (blue Epithelial, orange Fibroblast, gray Other). The value in [ ] on the y-axis is how many of the 102 reference-type marker genes were present in the data.
+No cell was called a reference type (T/NK, B, Myeloid, etc.): 0 of 28,397 cells and 0 of 372 metacells.</figcaption>
 </figure>
 
-<p><strong>読み方に注意が要ります。</strong> 11 サンプルのうち 6 サンプル(KATOIII、MKN-45、NCI-N87、NUGC-4、SNU-601、SNU-668)は、
-公開された特徴量リストが約 1.3〜1.4 万遺伝子に絞られていて、参照型マーカー 102 個のうちデータに存在するのは 18〜27 個だけです(発現のない遺伝子が公開時に除かれたとみられ、免疫細胞のマーカーの多くが含まれていない)。
-そのため、参照が 0 個になった結果を「判定規則が腫瘍細胞を参照と誤らなかった」ことの証拠として強く言えるのは、
-マーカーが全部そろう残り 5 サンプル(HGC-27 の 2 つ、SNU-16 の 2 つ、SNU-638。計 6,248 細胞・80 metacell)に限られます。
-6 サンプルでは、参照型のスコアは数個の遺伝子から計算されるため、参照を検出する力そのものが弱い状態です。</p>
-<p>マーカーが全部そろう 5 サンプルでも、粗クラスタ 27 個のうち 2 個(HGC-27 の 363 細胞)は最高スコアが参照型(Macrophage)でしたが、
-スコアは ±0.003 でほぼ 0 であり、判定規則(margin と z)で Other に落ちました。</p>
-<p>参照が 0 個になったことには、二つの意味があります。</p>
+<p><strong>Read this with care.</strong> Six of the 11 samples (KATOIII, MKN-45, NCI-N87, NUGC-4, SNU-601, SNU-668)
+have a published feature list trimmed to about 13,000-14,000 genes, and only 18-27 of the 102 reference-type markers are present in the data (genes without expression seem to have been removed on publication, and many immune-cell markers are missing).
+Therefore, "zero references" can be taken as strong evidence that the rule did not mistake tumor cells for references only
+in the other five samples, where all markers are present (two HGC-27, two SNU-16, and SNU-638; 6,248 cells and 80 metacells in total).
+In the six samples, the reference-type score is computed from a few genes, so the power to detect a reference is itself weak.</p>
+<p>Even among the five complete samples, 2 of 27 coarse clusters (363 cells of HGC-27) had a reference type (Macrophage) as the top score,
+but the score was about ±0.003, essentially 0, and the rule (margin and z) dropped them to Other.</p>
+<p>Zero references has two meanings.</p>
 <ul>
-<li>判定規則が保守的に働き、偽の参照が混ざらなかった(上の5サンプルで確認)。</li>
-<li><strong>サンプル内に参照がなければ、絶対的な CNV を出す手段がパイプライン内に残らない</strong>(表1 の D)。</li>
+<li>The rule acted conservatively and no false reference got in (confirmed in the five samples above).</li>
+<li><strong>Without a reference in the sample, the pipeline has no way left to produce an absolute CNV</strong> (D in Table 1).</li>
 </ul>
-<p><code>--marker-min-margin</code> を 0 付近まで下げると、上の 363 細胞が Macrophage とされ、腫瘍細胞が参照に入る恐れがあります。</p>
-<h3 id="63-cnv">6.3 「正常」の判定が CNV の構造に支えられているか</h3>
+<p>If <code>--marker-min-margin</code> is lowered close to 0, those 363 cells would be called Macrophage, and tumor cells might enter the reference.</p>
+<h3 id="63-is-the-normal-call-supported-by-cnv-structure">6.3 Is the "normal" call supported by CNV structure?</h3>
 <figure>
-<a href="img/Case1_normal_call.png"><img src="img/Case1_normal_call.png" alt="Case1 の正常判定の根拠"></a>
-<figcaption><b>図6. Case1(イヌ腫瘍、364 metacell、参照 293 個)の「正常」metacell の決め方。</b>
-(a) 参照(緑)の <code>cnv_score</code> 分布と閾値(破線、平均+3SD = 2.98)。(b) クローンごとの中央値。赤が悪性、青が正常。
-(c) <code>cnv_score</code> とは独立な「ブロック性」(染色体内で 10 窓ずらした自己相関)との関係。
-(d) CNV ヒートマップ(行は metacell をクローン順に並べたもの。左の帯が判定、点線が推定した変化点)。
-(e) 悪性コール群と正常コール群の平均プロファイル。(f)(g) 重ならない窓どうしの相関(全体・群別・クローン別)。
-(h)(i)(j) 悪性コール群の平均プロファイルとの相関、およびブロック性を、クローン別・細胞型別に示す。</figcaption>
+<a href="img/en/Case1_normal_call.png"><img src="img/en/Case1_normal_call.png" alt="Evidence for the normal call in Case1"></a>
+<figcaption><b>Figure 6. How "normal" metacells are determined in Case1 (dog tumor, 364 metacells, 293 references).</b>
+(a) Distribution of <code>cnv_score</code> in the references (green) and the threshold (dashed; mean + 3 SD = 2.98). (b) Median per clone; red = malignant, blue = normal.
+(c) Relation to "blockiness" (autocorrelation at a lag of 10 windows within chromosomes), which is independent of <code>cnv_score</code>.
+(d) CNV heatmap (rows are metacells ordered by clone; the left bar is the call, dotted lines are estimated change points).
+(e) Mean profile of the malignant-called and normal-called groups. (f)(g) Correlation between non-overlapping windows (overall, by group, by clone).
+(h)(i)(j) Correlation with the mean profile of the malignant-called group, and blockiness, by clone and by cell type.</figcaption>
 </figure>
 
-<p>Case1 では、悪性コールと正常コールが明確に分かれました。悪性コールのブロック性の中央値は 0.17、正常コールは 0.016 です。
-悪性コール群の下位 10% 点(相関 0.55)を超える正常コールは 299 個中 0 個でした。</p>
+<p>In Case1, the malignant and normal calls separate clearly. The median blockiness is 0.17 for the malignant call and 0.016 for the normal call.
+None of the 299 normal-called metacells exceeds the 10th percentile of the malignant-called group (correlation 0.55).</p>
 <figure>
-<a href="img/Case23_normal_call.png"><img src="img/Case23_normal_call.png" alt="Case23 の正常判定の根拠"></a>
-<figcaption><b>図7. Case23(イヌ腫瘍、148 metacell、参照 24 個)。</b>
-パネルの意味は図6と同じ。(a) の参照が 24 個と少なく、閾値(2.13)の根拠は弱い。
-(h) で、正常コールのクローン 3(23 個)の腫瘍パターンとの相関の中央値が 0.38 と高く、閾値直下に腫瘍様のクローンが残っている。</figcaption>
+<a href="img/en/Case23_normal_call.png"><img src="img/en/Case23_normal_call.png" alt="Evidence for the normal call in Case23"></a>
+<figcaption><b>Figure 7. Case23 (dog tumor, 148 metacells, 24 references).</b>
+Panels are the same as in Fig. 6. The 24 references in (a) are few, so the basis of the threshold (2.13) is weak.
+In (h), the normal-called clone 3 (23 metacells) has a high median correlation of 0.38 with the tumor pattern, so a tumor-like clone remains just below the threshold.</figcaption>
 </figure>
 
-<p>Case23 では、正常コールの 113 個のうち 18 個が、悪性コール群の平均プロファイルとの相関 0.3 以上でした。
-参照が少なく 1 細胞あたりの読み取りも少ない(約 426 遺伝子 / 細胞)ため、閾値付近でクローン単位に切ると、腫瘍細胞を含む混合 metacell や低純度の腫瘍クローンが「正常」に入りえます。</p>
-<p>なお、重ならない隣接窓の相関(図6・図7 の (f)(g))は、群の内部では 0.04〜0.1 と低く、変化点をまたぐかどうかの差も一貫しません。
-クローン内の metacell が似た状態でばらつきが小さいことが理由と考えています。判定の根拠として使えるのは、ブロック性と腫瘍パターンとの相関のほうです。
-変化点は悪性コール群と正常コール群の差から自動推定したもので、実際の境界より粗い(参考扱い)。</p>
-<h2 id="7">7. 参照なし・別サンプル参照の信頼性(検証結果)</h2>
-<p>サンプル内に参照がない場合(表1 の C・D)に、どこまで CNV を信頼できるかを、正解のわかるデータで測りました。
-<strong>この節の方針は検証済みですが、パイプラインには未実装です</strong>(再現用のスクリプトは作業ディレクトリの <code>_geo_cnv/</code> にあり、公開リポジトリには含めていません。結果の表は <code>docs/data/</code> にあります)。</p>
-<h3 id="71">7.1 検証の設計</h3>
+<p>In Case23, 18 of the 113 normal-called metacells have a correlation of 0.3 or more with the mean profile of the malignant-called group.
+With few references and few reads per cell (about 426 genes per cell), cutting clones near the threshold can put mixed metacells containing tumor cells, or low-purity tumor clones, into "normal".</p>
+<p>Note that the correlation of adjacent non-overlapping windows (panels (f)(g) of Figs. 6 and 7) is low within groups (0.04-0.1), and its difference across change points is not consistent.
+We think this is because metacells within a clone are in a similar state and vary little. What can be used as evidence for the call is blockiness and the correlation with the tumor pattern.
+Change points are estimated automatically from the difference between the malignant-called and normal-called groups and are coarser than the real boundaries (for reference only).</p>
+<h2 id="7-reliability-without-a-reference-or-with-other-samples-as-reference-validation">7. Reliability without a reference or with other samples as reference (validation)</h2>
+<p>We measured on data with known truth how far CNV can be trusted when there is no reference in the sample (C and D in Table 1).
+<strong>The policy in this section is validated but not implemented in the pipeline.</strong> (The scripts to reproduce it are in <code>_geo_cnv/</code> of the working directory and are not in the public repository. The result tables are in <code>docs/data/</code>.)</p>
+<h3 id="71-design-of-the-validation">7.1 Design of the validation</h3>
 <ul>
-<li><strong>データ</strong>: GSE142750 の胃がん細胞株 9 株(ヒト hg38、chrM は除外)。11 サンプルのうち、同じ株の重複を 1 株にまとめて 9 株として評価した。結合データ(merged)は使っていない。</li>
-<li><strong>正解</strong>: DepMap の <code>OmicsCNGene</code>(遺伝子ごとの相対コピー数)。log2(コピー数) を正解にし、20 Mb 窓で増幅 &gt; 0.3、欠失 &lt; −0.3 とした。</li>
-<li><strong>比較した参照</strong>: (A) 公開データ(Tabula Sapiens など)から作った外部参照、(B) 同じ実験の<strong>他の株</strong>の中央値(評価する株を除いた残り 8 株)。</li>
+<li><strong>Data</strong>: nine gastric cancer cell lines of GSE142750 (human hg38, chrM excluded). Of the 11 samples, duplicates of the same line were merged into one, giving nine lines. The merged data set was not used.</li>
+<li><strong>Truth</strong>: DepMap <code>OmicsCNGene</code> (relative copy number per gene). log2(copy number) was the truth; in 20 Mb windows, gain &gt; 0.3 and loss &lt; -0.3.</li>
+<li><strong>References compared</strong>: (A) an external reference built from public data (Tabula Sapiens, etc.); (B) the median of <strong>other lines</strong> in the same experiment (the remaining 8 lines, excluding the line being evaluated).</li>
 </ul>
-<h3 id="72">7.2 結果</h3>
+<h3 id="72-results">7.2 Results</h3>
 <figure>
-<a href="img/fig3_reference_accuracy.png"><img src="img/fig3_reference_accuracy.png" alt="DepMap を正解にした CNV 検出の相関"></a>
-<figcaption><b>図3. 参照の種類と窓の作り方による、DepMap との相関(9 株、20 Mb 窓)。</b>
-縦軸は DepMap の相対コピー数との相関 r。薄い青が位置基準の窓、濃い青が位置基準に「窓内の遺伝子数が期待の 50% 以上」を加えた窓。
-外部参照のみ(0.54)より、遺伝子の性質(密度・長さ・参照の発現量)で補正した外部参照(0.62〜0.69)や、同一実験の他株の中央値(0.66〜0.68)が高い。</figcaption>
+<a href="img/en/fig3_reference_accuracy.png"><img src="img/en/fig3_reference_accuracy.png" alt="Correlation of CNV detection against DepMap truth"></a>
+<figcaption><b>Figure 3. Correlation with DepMap by reference type and window construction (9 lines, 20 Mb windows).</b>
+The y-axis is the correlation r with DepMap relative copy number. Light blue = position-based windows; dark blue = position-based windows plus the rule "at least 50% of the expected number of genes in the window".
+External reference only (0.54) is lower than the external reference corrected for gene properties (density, length, reference expression; 0.62-0.69) and the median of other lines in the same experiment (0.66-0.68).</figcaption>
 </figure>
 
 <ol>
-<li><strong>同一実験の他株の中央値(B)が、公開データの外部参照(A)より高い</strong>(r 0.66 と 0.54)。公開データには、株に依存しない共通の偏り(例:chr19 が全 9 株で約 +0.9 log2)が入る。偏りは主に位置に依存するが、遺伝子単位ではばらつく。</li>
-<li><strong>遺伝子の性質による補正で、A と B の差の約 7 割を埋められる</strong>。補正には遺伝子密度・遺伝子長・参照の発現量を使い、対象の染色体を除いた学習(leave-chromosome-out)で行った。補正後の r は 0.62、遺伝子数の下限ルールを併用すると 0.69。</li>
-<li><strong>窓は、位置基準でも遺伝子数基準でも検出性能は同等</strong>だった。<strong>位置基準で窓を切り、遺伝子が期待の 50% に満たない窓を除く</strong>のが最良だった(r 0.69)。</li>
-<li><strong>遺伝子の少ない窓(目安 20 遺伝子以下)は信頼できない</strong>(r 0.43〜0.55)。</li>
-<li><strong>組織間で変動の大きい遺伝子を除いても精度は上がらない</strong>。50% 以上除くと共通成分がむしろ増えた(SD 0.43 → 0.55)。解像度だけが落ちる。</li>
+<li><strong>The median of other lines in the same experiment (B) beats the external reference from public data (A)</strong> (r 0.66 vs 0.54). Public data carries a line-independent common bias (e.g. chr19 is about +0.9 log2 in all nine lines). The bias depends mainly on position but varies from gene to gene.</li>
+<li><strong>Correcting for gene properties closes about 70% of the gap between A and B.</strong> Gene density, gene length, and reference expression were used for the correction, trained leave-chromosome-out. After correction r is 0.62, and 0.69 together with the lower limit on gene count.</li>
+<li><strong>Position-based and gene-count-based windows detect equally well.</strong> The best was to <strong>cut windows by position and drop windows with fewer than 50% of the expected genes</strong> (r 0.69).</li>
+<li><strong>Windows with few genes (about 20 genes or fewer) are unreliable</strong> (r 0.43-0.55).</li>
+<li><strong>Removing genes that vary strongly between tissues does not improve accuracy.</strong> Removing 50% or more even increased the common component (SD 0.43 → 0.55). Only resolution is lost.</li>
 </ol>
 <figure>
-<a href="img/fig4_cross_sample_null.png"><img src="img/fig4_cross_sample_null.png" alt="正常細胞どうしの差プロファイルの大きさ"></a>
-<figcaption><b>図4. 正常細胞どうしを比べたときの差プロファイルの大きさ(20 Mb 窓)。</b>
-横軸は差の標準偏差(log2)、破線は CNV 判定の閾値 0.3。灰は同一サンプル内、橙は共通モデル(イヌ PBMC)、赤は別サンプル。
-別サンプルの差(0.59〜0.64)は、同一サンプル内(0.06〜0.15)の 4 倍以上で、CNV の判定閾値を超えている。</figcaption>
+<a href="img/en/fig4_cross_sample_null.png"><img src="img/en/fig4_cross_sample_null.png" alt="Size of the difference profile between normal cell sets"></a>
+<figcaption><b>Figure 4. Size of the difference profile when comparing normal cells with each other (20 Mb windows).</b>
+The x-axis is the SD of the difference (log2); the dashed line is the CNV call threshold 0.3. Gray = within a sample, orange = common model (dog PBMC), red = across samples.
+The across-sample difference (0.59-0.64) is more than four times the within-sample difference (0.06-0.15) and exceeds the CNV call threshold.</figcaption>
 </figure>
 
 <ol start="6">
-<li><strong>別サンプルを 1 つだけ対照にしても、CNV 検出には使えない</strong>。Case1 と Case23 の正常細胞(同じ Myeloid)どうしでも、20 Mb 窓の差の標準偏差は 0.64 で、62% の窓で偏りが 0.3 を超えた。同一サンプル内では 0.06〜0.09 である。遺伝子の性質による補正で約半分(0.34)に下がるが、サンプル内の水準には届かない。</li>
-<li>他株の中央値(B)が効いたのは、<strong>多数のサンプルの中央値を取るとサンプル固有のずれが平均化される</strong>ためと考えている。イヌでは現状 2 サンプルしかなく、この点は未検証。</li>
+<li><strong>A single other sample cannot serve as the control for CNV detection.</strong> Even between normal cells of the same type (Myeloid) in Case1 and Case23, the SD of the difference in 20 Mb windows is 0.64, and the bias exceeds 0.3 in 62% of windows. Within one sample it is 0.06-0.09. Correction for gene properties halves it (0.34), but it does not reach the within-sample level.</li>
+<li>We think the median of other lines (B) worked because <strong>taking the median over many samples averages out sample-specific shifts.</strong> For dog there are currently only two samples, so this point is untested.</li>
 </ol>
-<h3 id="73">7.3 推奨する運用(確認済みの方針)</h3>
+<h3 id="73-recommended-practice-confirmed-policy">7.3 Recommended practice (confirmed policy)</h3>
 <ol>
-<li><strong>窓は位置を基準にし、遺伝子の少ない窓は隣の窓とまとめて検出する</strong>。遺伝子数が期待の 50% に満たない窓は、判定不能として扱う。</li>
-<li><strong>組織依存の遺伝子だからといって除かない</strong>。有意かどうかは位置基準の窓で判断する。</li>
-<li><strong>参照の優先順位</strong>: ①同一サンプル内の正常細胞(最も確か) &gt; ②解析者が用意した、同じ実験の近い条件のサンプル(多数の中央値が望ましい) &gt; ③公開データ(やむを得ない場合の代替で、必ず注釈を付ける)。</li>
-<li>公開データの代替として「入手できるデータ全体の平均」を使うと精度は低いが、性質の近い細胞なら有効な場合がある。</li>
-<li><strong>判定不明の領域は、「CNV なし」と区別できる表示にする</strong>。除去(不明扱い)が正当化されるのは、「CNV がない」と誤解されないように示す場合に限る。</li>
+<li><strong>Cut windows by position, and call windows with few genes together with their neighbors.</strong> Treat windows with fewer than 50% of the expected genes as undetermined.</li>
+<li><strong>Do not drop genes just because they are tissue-dependent.</strong> Judge significance with position-based windows.</li>
+<li><strong>Order of preference for the reference</strong>: (1) normal cells in the same sample (most reliable) &gt; (2) samples prepared by the analyst under similar conditions in the same experiment (the median over many is preferable) &gt; (3) public data (a last-resort substitute; always annotate).</li>
+<li>As a substitute for public data, using "the mean of all available data" has low accuracy, but it can work for cells with similar properties.</li>
+<li><strong>Show undetermined regions so they can be told apart from "no CNV".</strong> Removing them (treating them as unknown) is justified only if it is shown in a way that is not mistaken for "no CNV".</li>
 </ol>
-<p>[実装状況] 1〜5 は<strong>未実装</strong>です。現行の <code>--cnv-reference external</code> は、複数サンプルを合算した擬似バルク 1 本を参照にする方式で、検証した「他株の中央値」とは異なります。</p>
-<h2 id="8">8. 結果を読むときのチェックリスト</h2>
+<p>[Status] Items 1-5 are <strong>not implemented</strong>. The current <code>--cnv-reference external</code> uses one pseudo-bulk profile pooled from several samples as the reference, which differs from the validated "median of other lines".</p>
+<h2 id="8-checklist-for-reading-results">8. Checklist for reading results</h2>
 <ol>
-<li><code>INTERPRETATION_CAVEATS.txt</code> と <code>malignant_call.txt</code> を読んだか(方法・閾値・参照の数が書いてある)。</li>
-<li>参照 metacell は何個か。3 個未満なら gap 法になっていないか。24 個程度なら閾値は不安定(図7)。</li>
-<li>参照は本当に正常か。参照型が腫瘍そのものになりうる場合(例:骨髄系の腫瘍)は、CNV が打ち消される。</li>
-<li>悪性と正常の間に中間のクローンがないか(図6(b)、図7(b))。中間があれば、判定は閾値に左右されている。</li>
-<li>「正常」と判定されたクローンで、腫瘍パターンとの相関やブロック性が高くないか(図6・図7 の (h)(i))。</li>
-<li>参照が別サンプルや公開データなら、「判定不明の領域」と「サンプル間のずれ」を結果に明記したか(§7)。</li>
-<li>参照なし(表1 の D)の結果を、絶対的な CNV として書いていないか。見えているのはサブクローン間の相対差だけ。<code>malignant_call.txt</code> が gap 法なら、<code>putative_malignant</code> を腫瘍 vs 正常と読んでいないか(クローンが 2 個だと必ず二分される)。</li>
-<li>DE の p 値を推論に使っていないか(擬似反復・循環性)。</li>
-<li>系譜は <code>has_structure</code> が真のときだけ読んでいるか。</li>
-<li>重要な結論は CopyKAT や SCEVAN など別の方法でも確認したか。</li>
+<li>Did you read <code>INTERPRETATION_CAVEATS.txt</code> and <code>malignant_call.txt</code> (they state the method, threshold, and number of references)?</li>
+<li>How many reference metacells are there? If fewer than 3, did it become the gap method? With about 24 the threshold is unstable (Fig. 7).</li>
+<li>Is the reference really normal? If a reference type can be the tumor itself (e.g. a myeloid tumor), CNV is cancelled.</li>
+<li>Is there an intermediate clone between malignant and normal (Fig. 6(b), Fig. 7(b))? If so, the call depends on the threshold.</li>
+<li>In clones called "normal", is the correlation with the tumor pattern or the blockiness high (Figs. 6 and 7, (h)(i))?</li>
+<li>If the reference is another sample or public data, did you state the "undetermined regions" and the "between-sample shift" in the results (Sec. 7)?</li>
+<li>Did you write a result without a reference (D in Table 1) as absolute CNV? What is visible is only the relative difference between subclones. If <code>malignant_call.txt</code> shows the gap method, did you read <code>putative_malignant</code> as tumor vs normal? (With 2 clones it always splits in two.)</li>
+<li>Did you use DE p-values for inference (pseudo-replication, circularity)?</li>
+<li>Did you read the lineage only when <code>has_structure</code> is true?</li>
+<li>Did you confirm important conclusions with another method such as CopyKAT or SCEVAN?</li>
 </ol>
-<h2 id="9">9. 既知の限界</h2>
+<h2 id="9-known-limitations">9. Known limitations</h2>
 <ul>
-<li>CNV は発現量からの推定で、DNA の測定ではない。遺伝子密度・遺伝子長・発現量に由来する偏りを含む(窓あたりの遺伝子が少ないほど不安定)。</li>
-<li>均一な腫瘍(単一株の細胞株など)で参照が無いと、クローン全体の CNV は検出できない。サブクローン間の差しか見えない(表1 の D)。</li>
-<li>gap 法は、クローンが 2 個だと必ず二分する。腫瘍だけのサンプルでも「悪性」と「正常」が現れうる(§3)。この判定の妥当性を測る対照(例えば、ギャップの絶対的な大きさに閾値を設ける)は未実装。</li>
-<li>1 細胞あたりの読み取りが少ないサンプル(例:Case23、約 426 遺伝子 / 細胞)では、詳細な解析に限界がある。「単純」な構造という意味ではない。</li>
-<li>「正常」はマーカーによる推定で、遺伝的に確認されていない。参照型の細胞全体が共通の CNV を持つ場合(骨髄系の腫瘍など)は、サンプル内の解析では見えない。</li>
-<li>一塩基多型のアレル比によるコピー数の確認は未実装。DNA レベルの確認や、同じ実験で得た真の正常細胞があれば、この限界は解消できる。</li>
-<li>系譜(Dollo 節約法)は、構造の検定で支持されなければ解釈してはいけない(Case1・Case23 とも支持されなかった)。</li>
+<li>CNV is estimated from expression and is not a DNA measurement. It contains biases from gene density, gene length, and expression level (the fewer genes per window, the less stable).</li>
+<li>For a uniform tumor (a single cell line, etc.) with no reference, CNV shared by the whole clone cannot be detected. Only differences between subclones are visible (D in Table 1).</li>
+<li>The gap method always splits in two when there are 2 clones. Even a tumor-only sample can show "malignant" and "normal" (Sec. 3). A control for the validity of this call (for example, a threshold on the absolute size of the gap) is not implemented.</li>
+<li>Samples with few reads per cell (e.g. Case23, about 426 genes per cell) limit detailed analysis.</li>
+<li>"Normal" is inferred from markers and not confirmed genetically. If all cells of the reference type share a CNV (e.g. a myeloid tumor), it cannot be seen by within-sample analysis.</li>
+<li>Confirming copy number from allele ratios of single-nucleotide polymorphisms is not implemented. DNA-level confirmation, or truly normal cells from the same experiment, would remove this limitation.</li>
+<li>Do not interpret the lineage (Dollo parsimony) unless the structure test supports it (it did not in either Case1 or Case23).</li>
 </ul>
-<h2 id="10">10. トラブルシュート</h2>
+<h2 id="10-troubleshooting">10. Troubleshooting</h2>
 <div class="tablewrap"><table>
 <thead>
 <tr>
-<th>症状</th>
-<th>原因と対処</th>
+<th>Symptom</th>
+<th>Cause and remedy</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>一致率が低い、座標が付かない遺伝子が多い</td>
-<td><code>--gtf-gene-id</code> の値(<code>gene</code> か <code>gene_name</code>)と、<code>features.tsv</code> の遺伝子名の形式を確認する。<code>--preflight-only</code> で再検査</td>
+<td>Low match rate, many genes without coordinates</td>
+<td>Check the value of <code>--gtf-gene-id</code> (<code>gene</code> or <code>gene_name</code>) and the gene-name format in <code>features.tsv</code>. Re-check with <code>--preflight-only</code></td>
 </tr>
 <tr>
-<td>RefSeq のアクセッションが染色体名にならない</td>
-<td><code>--chromosome-map</code> に NCBI assembly report を渡す</td>
+<td>RefSeq accessions do not become chromosome names</td>
+<td>Give an NCBI assembly report to <code>--chromosome-map</code></td>
 </tr>
 <tr>
-<td>mtDNA 遺伝子が見つからない警告</td>
-<td>Cell Ranger の参照に mtDNA が含まれていない可能性。pctMT による QC は機能しないので <code>--no-pctmt-filter</code> を付ける</td>
+<td>Warning that mtDNA genes are not found</td>
+<td>The Cell Ranger reference may not contain mtDNA. QC by pctMT will not work, so add <code>--no-pctmt-filter</code></td>
 </tr>
 <tr>
-<td>「正常参照が確保できません」で止まる</td>
-<td>参照型の細胞が 1 個もない。腫瘍だけのサンプルなら <code>--cnv-reference none</code> を明示する。正常と分かるクラスタがあれば <code>--normal-clusters</code> で指定する(§3)</td>
+<td>Stops with "正常参照が確保できません" (cannot secure a normal reference)</td>
+<td>There is no reference-type cell. For a tumor-only sample, specify <code>--cnv-reference none</code>. If you know of clusters that are normal, name them with <code>--normal-clusters</code> (Sec. 3)</td>
 </tr>
 <tr>
-<td>参照が少なく DE が出ない</td>
-<td>参照 metacell が 3 個未満だと単一株相当とみなして DE をスキップする(<code>--sample-kind</code>†)。CNV の判定は出力される</td>
+<td>No DE because references are few</td>
+<td>With fewer than 3 reference metacells the sample is treated as a single line and DE is skipped (<code>--sample-kind</code>†). The CNV call is still output</td>
 </tr>
 <tr>
-<td>悪性判定が全部 <code>unassigned</code></td>
-<td>gap 法で明確な二峰性がなく、判定を放棄した。クローンが 1 個のときも同じ。<code>--cells-per-metacell</code> を下げて解像度を上げるか、<code>--normal-clusters</code> で群を指定する</td>
+<td>All malignant calls are <code>unassigned</code></td>
+<td>The gap method found no clear bimodality and abandoned the call. The same happens with a single clone. Lower <code>--cells-per-metacell</code> to raise resolution, or name the groups with <code>--normal-clusters</code></td>
 </tr>
 <tr>
-<td><code>cnv_metacells.h5ad</code> を anndata 0.11.4 で読むと <code>uns/log1p/base</code> で失敗する</td>
-<td>保存された <code>log1p</code> が null のため。ファイルを複製して <code>h5py</code> で <code>uns/log1p</code> を削除すれば読める</td>
+<td>Reading <code>cnv_metacells.h5ad</code> with anndata 0.11.4 fails at <code>uns/log1p/base</code></td>
+<td>The saved <code>log1p</code> is null. Copy the file and delete <code>uns/log1p</code> with <code>h5py</code>, then it can be read</td>
 </tr>
 <tr>
-<td>メモリ不足(約 4 GB の環境で doublet 検出が OOM になった例)</td>
-<td>細胞数の多いサンプルは、メモリに余裕のある環境で実行する</td>
+<td>Out of memory (doublet detection ran out of memory on an environment of about 4 GB)</td>
+<td>Run samples with many cells on a machine with more memory</td>
 </tr>
 </tbody>
 </table></div>
-<h2 id="_1">付録:再現用の資料</h2>
-<p><strong>表5. <code>docs/</code> に置いたファイル</strong></p>
+<h2 id="appendix-materials-for-reproduction">Appendix: materials for reproduction</h2>
+<p><strong>Table 5. Files in <code>docs/</code></strong></p>
 <div class="tablewrap"><table>
 <thead>
 <tr>
-<th>ファイル</th>
-<th>内容</th>
+<th>File</th>
+<th>Content</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td><code>pipeline_guide.md</code>、<code>index.html</code></td>
-<td>本ガイド(日本語)の Markdown 版と HTML 版(同じ内容)</td>
+<td><code>pipeline_guide.md</code>, <code>index_jp.html</code></td>
+<td>Japanese guide (Markdown and HTML versions, same content)</td>
 </tr>
 <tr>
-<td><code>pipeline_guide.en.md</code>、<code>index.en.html</code></td>
-<td>英語版の Markdown 版と HTML 版(同じ内容)</td>
+<td><code>pipeline_guide.en.md</code>, <code>index.html</code></td>
+<td>English guide (Markdown and HTML versions, same content)</td>
 </tr>
 <tr>
 <td><code>build_html.py</code></td>
-<td>Markdown から <code>index.html</code> と <code>index.en.html</code> を生成する</td>
+<td>Builds <code>index_jp.html</code> and <code>index.html</code> from the Markdown files</td>
 </tr>
 <tr>
 <td><code>make_diagrams.py</code></td>
-<td>図1・図2(SVG)を生成する(<code>--lang ja\|en</code>)</td>
+<td>Draws Figs. 1 and 2 (SVG); <code>--lang ja\|en</code></td>
 </tr>
 <tr>
 <td><code>make_figures.py</code></td>
-<td><code>docs/data/</code> の CSV から図3〜5を生成する(<code>--lang ja\|en</code>)</td>
+<td>Draws Figs. 3-5 from the CSV files in <code>docs/data/</code>; <code>--lang ja\|en</code></td>
 </tr>
 <tr>
 <td><code>make_call_figure.py</code></td>
-<td><code>cnv_metacells.h5ad</code> と <code>metacell_obs.csv</code> から図6・図7(正常判定の根拠)を生成する(<code>--lang ja\|en</code>)</td>
+<td>Draws Figs. 6 and 7 (evidence for the normal call) from <code>cnv_metacells.h5ad</code> and <code>metacell_obs.csv</code>; <code>--lang ja\|en</code></td>
 </tr>
 <tr>
 <td><code>data/pos_vs_count.csv</code></td>
-<td>図3の元表(参照 × 窓の作り方 × 窓幅ごとの相関と AUC)</td>
+<td>Source table of Fig. 3 (correlation and AUC by reference x window construction x window size)</td>
 </tr>
 <tr>
 <td><code>data/cross_case2_null.csv</code></td>
-<td>図4の元表(正常どうしの差の標準偏差)</td>
+<td>Source table of Fig. 4 (SD of the difference between normal sets)</td>
 </tr>
 <tr>
-<td><code>data/ref_count_clusters.csv</code>、<code>data/ref_count_samples.csv</code>、<code>data/geo_marker_coverage.csv</code></td>
-<td>図5の元表(クラスタ・サンプルごとの細胞型ラベルと参照数、サンプルごとの参照型マーカーの存在数)</td>
+<td><code>data/ref_count_clusters.csv</code>, <code>data/ref_count_samples.csv</code>, <code>data/geo_marker_coverage.csv</code></td>
+<td>Source tables of Fig. 5 (cell-type labels and reference counts per cluster and sample; number of reference-type markers present per sample)</td>
 </tr>
 <tr>
-<td><code>img/</code>、<code>img/en/</code></td>
-<td>図(日本語版と英語版)。<code>Case1_normal_call.png</code>、<code>Case23_normal_call.png</code> が図6・図7</td>
+<td><code>img/</code>, <code>img/en/</code></td>
+<td>Figures (Japanese and English). <code>Case1_normal_call.png</code> and <code>Case23_normal_call.png</code> are Figs. 6 and 7</td>
 </tr>
 </tbody>
 </table></div>
-<p>正解データの DepMap(<code>OmicsCNGene.csv</code>、<code>Model.csv</code>)と GEO のデータ(GSE142750)は再配布していません。</p>
-<footer>metacellcnv 実行ガイド。Markdown 版: <a href="pipeline_guide.md">pipeline_guide.md</a>(同じ内容)。<code>docs/build_html.py</code> で生成。</footer>
+<p>DepMap (<code>OmicsCNGene.csv</code>, <code>Model.csv</code>) and the GEO data (GSE142750) used as truth are not redistributed.</p>
+<footer>metacellcnv User Guide. Markdown version: <a href="pipeline_guide.en.md">pipeline_guide.en.md</a> (same content). Generated by <code>docs/build_html.py</code>.</footer>
 </div>
 </body>
 </html>

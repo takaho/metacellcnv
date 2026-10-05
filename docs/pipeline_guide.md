@@ -5,7 +5,7 @@
 このガイドは、処理と校正が多段階になったパイプラインを「入力 → 選択 → 出力の意味」の順に整理したものです。
 先に結論だけ知りたい場合は、§3(参照の選び方)と§8(結果を読むときのチェックリスト)を読んでください。
 
-English version: [index.en.html](index.en.html) / [pipeline_guide.en.md](pipeline_guide.en.md)
+English version: [index.html](index.html) / [pipeline_guide.en.md](pipeline_guide.en.md)
 
 ## 0. このガイドの読み方
 
@@ -293,9 +293,9 @@ Case23 では、正常コールの 113 個のうち 18 個が、悪性コール�
 
 | ファイル | 内容 |
 |---|---|
-| `pipeline_guide.md`、`index.html` | 本ガイド(日本語)の Markdown 版と HTML 版(同じ内容) |
-| `pipeline_guide.en.md`、`index.en.html` | 英語版の Markdown 版と HTML 版(同じ内容) |
-| `build_html.py` | Markdown から `index.html` と `index.en.html` を生成する |
+| `pipeline_guide.md`、`index_jp.html` | 本ガイド(日本語)の Markdown 版と HTML 版(同じ内容) |
+| `pipeline_guide.en.md`、`index.html` | 英語版の Markdown 版と HTML 版(同じ内容) |
+| `build_html.py` | Markdown から `index_jp.html` と `index.html` を生成する |
 | `make_diagrams.py` | 図1・図2(SVG)を生成する(`--lang ja\|en`) |
 | `make_figures.py` | `docs/data/` の CSV から図3〜5を生成する(`--lang ja\|en`) |
 | `make_call_figure.py` | `cnv_metacells.h5ad` と `metacell_obs.csv` から図6・図7(正常判定の根拠)を生成する(`--lang ja\|en`) |

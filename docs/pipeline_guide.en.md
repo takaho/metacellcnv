@@ -5,7 +5,7 @@
 The pipeline now has several processing and calibration steps. This guide lays them out in the order "input → choice → meaning of the output".
 If you only want the conclusions, read Sec. 3 (choosing a reference) and Sec. 8 (checklist for reading results).
 
-日本語版: [index.html](index.html) / [pipeline_guide.md](pipeline_guide.md)
+日本語版: [index_jp.html](index_jp.html) / [pipeline_guide.md](pipeline_guide.md)
 
 ## 0. How to read this guide
 
@@ -293,9 +293,9 @@ The across-sample difference (0.59-0.64) is more than four times the within-samp
 
 | File | Content |
 |---|---|
-| `pipeline_guide.md`, `index.html` | Japanese guide (Markdown and HTML versions, same content) |
-| `pipeline_guide.en.md`, `index.en.html` | English guide (Markdown and HTML versions, same content) |
-| `build_html.py` | Builds `index.html` and `index.en.html` from the Markdown files |
+| `pipeline_guide.md`, `index_jp.html` | Japanese guide (Markdown and HTML versions, same content) |
+| `pipeline_guide.en.md`, `index.html` | English guide (Markdown and HTML versions, same content) |
+| `build_html.py` | Builds `index_jp.html` and `index.html` from the Markdown files |
 | `make_diagrams.py` | Draws Figs. 1 and 2 (SVG); `--lang ja\|en` |
 | `make_figures.py` | Draws Figs. 3-5 from the CSV files in `docs/data/`; `--lang ja\|en` |
 | `make_call_figure.py` | Draws Figs. 6 and 7 (evidence for the normal call) from `cnv_metacells.h5ad` and `metacell_obs.csv`; `--lang ja\|en` |
