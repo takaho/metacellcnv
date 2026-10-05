@@ -1,0 +1,12 @@
+sample,cells,clusters,cell_ref,metacells,mc_ref,new_types,old_types,agree_with_old
+HGC-27_1,1697,7,0,22,0,"{'Other': np.int64(1218), 'Fibroblast': np.int64(479)}","{'Other': np.int64(16), 'Fibroblast': np.int64(6)}",1.0
+HGC-27_2,1628,7,0,21,0,"{'Other': np.int64(1037), 'Fibroblast': np.int64(591)}","{'Fibroblast': np.int64(13), 'Other': np.int64(8)}",0.7619047619047619
+KATOIII,3001,8,0,40,0,{'Epithelial': np.int64(3001)},{'Epithelial': np.int64(40)},1.0
+MKN-45,2598,4,0,34,0,{'Epithelial': np.int64(2598)},{'Epithelial': np.int64(34)},1.0
+NCI-N87,3061,6,0,40,0,{'Epithelial': np.int64(3061)},{'Epithelial': np.int64(40)},1.0
+NUGC-4,3572,6,0,47,0,{'Epithelial': np.int64(3572)},{'Epithelial': np.int64(47)},1.0
+SNU-16_1,988,5,0,13,0,{'Epithelial': np.int64(988)},{'Epithelial': np.int64(13)},1.0
+SNU-16_2,1036,5,0,13,0,{'Epithelial': np.int64(1036)},{'Epithelial': np.int64(13)},1.0
+SNU-601,5008,6,0,66,0,{'Epithelial': np.int64(5008)},{'Epithelial': np.int64(66)},1.0
+SNU-638,899,3,0,11,0,{'Epithelial': np.int64(899)},{'Epithelial': np.int64(11)},1.0
+SNU-668,4909,8,0,65,0,{'Epithelial': np.int64(4909)},{'Epithelial': np.int64(65)},1.0

@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 780" width="1000" height="780" font-family="'Noto Sans CJK JP','Hiragino Sans','Yu Gothic','Meiryo',sans-serif" font-size="13">
+<rect width="1000" height="780" fill="#ffffff"/>
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#444"/></marker></defs>
+<text x="20" y="26" font-size="15" font-weight="bold">サンプルに応じた「参照」の選び方と、得られる出力の意味</text>
+<rect x="20" y="50" width="380" height="74" rx="6" fill="#f7f7f7" stroke="#444" stroke-width="1.2"/>
+<text x="210.0" y="82.0" text-anchor="middle" font-size="13">Q1  サンプル内に、マーカーで同定できる</text>
+<text x="210.0" y="100.0" text-anchor="middle" font-size="13">正常細胞(免疫・内皮など)が十分にある?</text>
+<line x1="400" y1="87.0" x2="470" y2="87.0" stroke="#444" stroke-width="1.4" marker-end="url(#ar)"/>
+<text x="408" y="81.0" font-size="12" fill="#b22">はい</text>
+<rect x="470" y="50" width="510" height="74" rx="6" fill="#e8f5e9" stroke="#444" stroke-width="1.2"/>
+<text x="725.0" y="73.0" text-anchor="middle" font-size="13" font-weight="bold">A. 既定:--cnv-reference celltype</text>
+<text x="725.0" y="91.0" text-anchor="middle" font-size="13">正常参照 metacell の cnv_score で閾値を決める(reference 法)</text>
+<text x="725.0" y="109.0" text-anchor="middle" font-size="13">→ 絶対的な CNV(参照に対する増減)として読める</text>
+<line x1="210.0" y1="124" x2="210.0" y2="190" stroke="#444" stroke-width="1.4" marker-end="url(#ar)"/>
+<text x="218.0" y="161.0" font-size="12" fill="#b22">いいえ</text>
+<rect x="20" y="190" width="380" height="74" rx="6" fill="#f7f7f7" stroke="#444" stroke-width="1.2"/>
+<text x="210.0" y="222.0" text-anchor="middle" font-size="13">Q2  マーカーでは同定できないが、</text>
+<text x="210.0" y="240.0" text-anchor="middle" font-size="13">正常と分かっているクラスタがある?</text>
+<line x1="400" y1="227.0" x2="470" y2="227.0" stroke="#444" stroke-width="1.4" marker-end="url(#ar)"/>
+<text x="408" y="221.0" font-size="12" fill="#b22">はい</text>
+<rect x="470" y="190" width="510" height="74" rx="6" fill="#fff8e1" stroke="#444" stroke-width="1.2"/>
+<text x="725.0" y="213.0" text-anchor="middle" font-size="13" font-weight="bold">B. --normal-clusters 3,7 / --normal-celltype Fibroblast</text>
+<text x="725.0" y="231.0" text-anchor="middle" font-size="13">指定したクラスタを参照にする</text>
+<text x="725.0" y="249.0" text-anchor="middle" font-size="13">→ A と同じ読み方だが「正常である」ことは利用者の責任</text>
+<line x1="210.0" y1="264" x2="210.0" y2="330" stroke="#444" stroke-width="1.4" marker-end="url(#ar)"/>
+<text x="218.0" y="301.0" font-size="12" fill="#b22">いいえ</text>
+<rect x="20" y="330" width="380" height="74" rx="6" fill="#f7f7f7" stroke="#444" stroke-width="1.2"/>
+<text x="210.0" y="362.0" text-anchor="middle" font-size="13">Q3  同じ実験・同じ条件で得た</text>
+<text x="210.0" y="380.0" text-anchor="middle" font-size="13">別サンプルを複数用意できる?</text>
+<line x1="400" y1="367.0" x2="470" y2="367.0" stroke="#444" stroke-width="1.4" marker-end="url(#ar)"/>
+<text x="408" y="361.0" font-size="12" fill="#b22">はい</text>
+<rect x="470" y="330" width="510" height="74" rx="6" fill="#fff3e0" stroke="#444" stroke-width="1.2"/>
+<text x="725.0" y="353.0" text-anchor="middle" font-size="13" font-weight="bold">C. 注釈付きの代替:別サンプルから参照を作る</text>
+<text x="725.0" y="371.0" text-anchor="middle" font-size="13">--cnv-reference external† --cnv-external-reference† &lt;CSV&gt;</text>
+<text x="725.0" y="389.0" text-anchor="middle" font-size="13">→ 精度は中程度。サンプル間のずれが混入するため注釈必須</text>
+<line x1="210.0" y1="404" x2="210.0" y2="470" stroke="#444" stroke-width="1.4" marker-end="url(#ar)"/>
+<text x="218.0" y="441.0" font-size="12" fill="#b22">いいえ</text>
+<rect x="20" y="470" width="380" height="74" rx="6" fill="#f7f7f7" stroke="#444" stroke-width="1.2"/>
+<text x="210.0" y="511.0" text-anchor="middle" font-size="13">Q4  (どれもない:腫瘍のみ・単一株の細胞株など)</text>
+<line x1="400" y1="507.0" x2="470" y2="507.0" stroke="#444" stroke-width="1.4" marker-end="url(#ar)"/>
+<rect x="470" y="470" width="510" height="74" rx="6" fill="#fdecea" stroke="#444" stroke-width="1.2"/>
+<text x="725.0" y="493.0" text-anchor="middle" font-size="13" font-weight="bold">D. --cnv-reference none --sample-kind† cell-line</text>
+<text x="725.0" y="511.0" text-anchor="middle" font-size="13">基準は全 metacell の平均 → 均一なクローンの CNV は消える</text>
+<text x="725.0" y="529.0" text-anchor="middle" font-size="13">→ サブクローン間の相対差だけが見える。絶対的な CNV は出ない</text>
+<rect x="20" y="580" width="960" height="170" rx="6" fill="#ffffff" stroke="#444" stroke-width="1.2"/>
+<text x="500.0" y="624.0" text-anchor="middle" font-size="13" font-weight="bold">共通の注意</text>
+<text x="500.0" y="642.0" text-anchor="middle" font-size="13">・公開データだけを参照にする場合は C と同じ扱いだが、精度はさらに低い(図3・図4)</text>
+<text x="500.0" y="660.0" text-anchor="middle" font-size="13">・C・D の結果は「判定不明の領域」を含む。不明な領域を「CNV なし」と読んではいけない(§7)</text>
+<text x="500.0" y="678.0" text-anchor="middle" font-size="13">・A・B でも、参照が少ない(例:24 個)と閾値が不安定。参照の数と cnv_score の分布を必ず確認する(§6)</text>
+<text x="500.0" y="696.0" text-anchor="middle" font-size="13">・「正常」と判定された metacell は「参照と区別できない」の意味で、正常細胞であることの確認ではない</text>
+<text x="500.0" y="714.0" text-anchor="middle" font-size="13">† は公開リポジトリ(2026-09-17 時点)にまだ入っていない、作業版のオプション</text>
+</svg>

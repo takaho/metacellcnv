@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 740" width="1000" height="740" font-family="'Noto Sans CJK JP','Hiragino Sans','Yu Gothic','Meiryo',sans-serif" font-size="13">
+<rect width="1000" height="740" fill="#ffffff"/>
+<defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#444"/></marker></defs>
+<text x="20" y="26" font-size="15" font-weight="bold">パイプラインの流れと、各段階で効くオプション</text>
+<rect x="20" y="44" width="340" height="76" rx="6" fill="#eef4fb" stroke="#444" stroke-width="1.2"/>
+<text x="190.0" y="68.0" text-anchor="middle" font-size="13" font-weight="bold">① 入力</text>
+<text x="190.0" y="86.0" text-anchor="middle" font-size="13">Cell Ranger の filtered_feature_bc_matrix</text>
+<text x="190.0" y="104.0" text-anchor="middle" font-size="13">+ GTF + 種別のマーカー表</text>
+<line x1="360" y1="82" x2="388" y2="82" stroke="#999" stroke-dasharray="3,3"/>
+<text x="394" y="68" font-family="monospace" font-size="12" fill="#222">--cellranger-dir  --sample-id  --gtf  --gtf-gene-id auto</text>
+<text x="394" y="86" font-family="monospace" font-size="12" fill="#222">--chromosome-map  --mito-chromosome  --markers {dog|human|mouse|CSV}</text>
+<text x="394" y="104" font-family="monospace" font-size="12" fill="#222">--preflight-only(入力だけ検査して終了)</text>
+<line x1="190" y1="120" x2="190" y2="144" stroke="#444" stroke-width="1.4" marker-end="url(#ar)"/>
+<rect x="20" y="144" width="340" height="76" rx="6" fill="#eef4fb" stroke="#444" stroke-width="1.2"/>
+<text x="190.0" y="168.0" text-anchor="middle" font-size="13" font-weight="bold">② 前処理・QC</text>
+<text x="190.0" y="186.0" text-anchor="middle" font-size="13">HVG/PCA・粗クラスタ・細胞型注釈</text>
+<text x="190.0" y="204.0" text-anchor="middle" font-size="13">mtDNA 構成検査・MAD QC・doublet</text>
+<line x1="360" y1="182" x2="388" y2="182" stroke="#999" stroke-dasharray="3,3"/>
+<text x="394" y="168" font-family="monospace" font-size="12" fill="#222">--n-hvg  --n-pcs  --leiden-resolution</text>
+<text x="394" y="186" font-family="monospace" font-size="12" fill="#222">--marker-rule  --marker-min-margin  --marker-min-within-z</text>
+<text x="394" y="204" font-family="monospace" font-size="12" fill="#222">--no-pctmt-filter  --expected-doublet-rate  --skip-doublet-rescue</text>
+<line x1="190" y1="220" x2="190" y2="244" stroke="#444" stroke-width="1.4" marker-end="url(#ar)"/>
+<rect x="20" y="244" width="340" height="76" rx="6" fill="#eef4fb" stroke="#444" stroke-width="1.2"/>
+<text x="190.0" y="268.0" text-anchor="middle" font-size="13" font-weight="bold">③ metacell 構築</text>
+<text x="190.0" y="286.0" text-anchor="middle" font-size="13">近い細胞を束ねてノイズを減らす</text>
+<text x="190.0" y="304.0" text-anchor="middle" font-size="13">(SEACells 非依存の自前実装)</text>
+<line x1="360" y1="282" x2="388" y2="282" stroke="#999" stroke-dasharray="3,3"/>
+<text x="394" y="277" font-family="monospace" font-size="12" fill="#222">--cells-per-metacell  --metacell-seed</text>
+<text x="394" y="295" font-family="monospace" font-size="12" fill="#222">--seacell-assignments auto(既存の割り当てを再利用)</text>
+<line x1="190" y1="320" x2="190" y2="344" stroke="#444" stroke-width="1.4" marker-end="url(#ar)"/>
+<rect x="20" y="344" width="340" height="76" rx="6" fill="#eef4fb" stroke="#444" stroke-width="1.2"/>
+<text x="190.0" y="368.0" text-anchor="middle" font-size="13" font-weight="bold">④ CNV 推定</text>
+<text x="190.0" y="386.0" text-anchor="middle" font-size="13">参照との差を窓移動平均で CNV にする</text>
+<text x="190.0" y="404.0" text-anchor="middle" font-size="13">参照の選び方が結果の意味を決める(図2)</text>
+<line x1="360" y1="382" x2="388" y2="382" stroke="#999" stroke-dasharray="3,3"/>
+<text x="394" y="368" font-family="monospace" font-size="12" fill="#222">--cnv-reference {celltype|none|external†}</text>
+<text x="394" y="386" font-family="monospace" font-size="12" fill="#222">--normal-celltype  --normal-clusters  --cnv-refine</text>
+<text x="394" y="404" font-family="monospace" font-size="12" fill="#222">--cnv-method {infercnv|bins}  --cnv-external-reference†</text>
+<line x1="190" y1="420" x2="190" y2="444" stroke="#444" stroke-width="1.4" marker-end="url(#ar)"/>
+<rect x="20" y="444" width="340" height="76" rx="6" fill="#eef4fb" stroke="#444" stroke-width="1.2"/>
+<text x="190.0" y="468.0" text-anchor="middle" font-size="13" font-weight="bold">⑤ 悪性の判定</text>
+<text x="190.0" y="486.0" text-anchor="middle" font-size="13">CNV クローン(cnv_leiden)単位で</text>
+<text x="190.0" y="504.0" text-anchor="middle" font-size="13">悪性 / 正常を決める</text>
+<line x1="360" y1="482" x2="388" y2="482" stroke="#999" stroke-dasharray="3,3"/>
+<text x="394" y="477" font-family="monospace" font-size="12" fill="#222">--malignant-call {auto|reference|gap|median}</text>
+<text x="394" y="495" font-family="monospace" font-size="12" fill="#222">--malignant-n-sd 3.0  --min-clone-gap 0.25</text>
+<line x1="190" y1="520" x2="190" y2="544" stroke="#444" stroke-width="1.4" marker-end="url(#ar)"/>
+<rect x="20" y="544" width="340" height="76" rx="6" fill="#eef4fb" stroke="#444" stroke-width="1.2"/>
+<text x="190.0" y="577.0" text-anchor="middle" font-size="13" font-weight="bold">⑥ 任意の解析</text>
+<text x="190.0" y="595.0" text-anchor="middle" font-size="13">系譜(Dollo)・metacell 注釈・DE</text>
+<line x1="360" y1="582" x2="388" y2="582" stroke="#999" stroke-dasharray="3,3"/>
+<text x="394" y="568" font-family="monospace" font-size="12" fill="#222">--lineage  --lineage-level  --lineage-events</text>
+<text x="394" y="586" font-family="monospace" font-size="12" fill="#222">--metacell-annotation</text>
+<text x="394" y="604" font-family="monospace" font-size="12" fill="#222">--sample-kind† {auto|tissue|cell-line}(DE を行うか)</text>
+<line x1="190" y1="620" x2="190" y2="644" stroke="#444" stroke-width="1.4" marker-end="url(#ar)"/>
+<rect x="20" y="644" width="340" height="76" rx="6" fill="#eef4fb" stroke="#444" stroke-width="1.2"/>
+<text x="190.0" y="668.0" text-anchor="middle" font-size="13" font-weight="bold">⑦ 出力と可視化</text>
+<text x="190.0" y="686.0" text-anchor="middle" font-size="13">metacell_obs.csv ほか(表3)</text>
+<text x="190.0" y="704.0" text-anchor="middle" font-size="13">metacellcnv_visualize.py で図とレポート</text>
+<line x1="360" y1="682" x2="388" y2="682" stroke="#999" stroke-dasharray="3,3"/>
+<text x="394" y="686" font-family="monospace" font-size="12" fill="#222">--results-dir  --prep-dir  --engine {plotly|matplotlib|both}</text>
+</svg>
