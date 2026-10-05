@@ -5,6 +5,8 @@
 このガイドは、処理と校正が多段階になったパイプラインを「入力 → 選択 → 出力の意味」の順に整理したものです。
 先に結論だけ知りたい場合は、§3(参照の選び方)と§8(結果を読むときのチェックリスト)を読んでください。
 
+English version: [index.en.html](index.en.html) / [pipeline_guide.en.md](pipeline_guide.en.md)
+
 ## 0. このガイドの読み方
 
 - **対象の版**: 作業版の `metacellcnv.py`(2026-09-29 時点)。オプション名・既定値は `--help` と実コードで確認しています。
@@ -291,12 +293,15 @@ Case23 では、正常コールの 113 個のうち 18 個が、悪性コール�
 
 | ファイル | 内容 |
 |---|---|
-| `pipeline_guide.md`、`index.html` | 本ガイドの Markdown 版と HTML 版(同じ内容) |
-| `make_diagrams.py` | 図1・図2(SVG)を生成する |
-| `make_figures.py` | `docs/data/` の CSV から図3〜5を生成する |
+| `pipeline_guide.md`、`index.html` | 本ガイド(日本語)の Markdown 版と HTML 版(同じ内容) |
+| `pipeline_guide.en.md`、`index.en.html` | 英語版の Markdown 版と HTML 版(同じ内容) |
+| `build_html.py` | Markdown から `index.html` と `index.en.html` を生成する |
+| `make_diagrams.py` | 図1・図2(SVG)を生成する(`--lang ja\|en`) |
+| `make_figures.py` | `docs/data/` の CSV から図3〜5を生成する(`--lang ja\|en`) |
+| `make_call_figure.py` | `cnv_metacells.h5ad` と `metacell_obs.csv` から図6・図7(正常判定の根拠)を生成する(`--lang ja\|en`) |
 | `data/pos_vs_count.csv` | 図3の元表(参照 × 窓の作り方 × 窓幅ごとの相関と AUC) |
 | `data/cross_case2_null.csv` | 図4の元表(正常どうしの差の標準偏差) |
 | `data/ref_count_clusters.csv`、`data/ref_count_samples.csv`、`data/geo_marker_coverage.csv` | 図5の元表(クラスタ・サンプルごとの細胞型ラベルと参照数、サンプルごとの参照型マーカーの存在数) |
-| `img/Case1_normal_call.png`、`img/Case23_normal_call.png` | 図6・図7(イヌ腫瘍 2 検体の判定根拠) |
+| `img/`、`img/en/` | 図(日本語版と英語版)。`Case1_normal_call.png`、`Case23_normal_call.png` が図6・図7 |
 
 正解データの DepMap(`OmicsCNGene.csv`、`Model.csv`)と GEO のデータ(GSE142750)は再配布していません。

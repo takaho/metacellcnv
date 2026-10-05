@@ -8,7 +8,7 @@
 :root { color-scheme: light; }
 html { background: #ffffff; }
 body { margin: 0; background: #ffffff; color: #222222;
-  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "Noto Sans CJK JP", "Segoe UI", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", "Noto Sans CJK JP", "Segoe UI", Helvetica, Arial, sans-serif;
   line-height: 1.75; font-size: 16px; }
 .page { max-width: 900px; margin: 0 auto; padding: 24px 16px 64px; }
 h1 { font-size: 1.7rem; margin: 0.4em 0 0.6em; }
@@ -30,12 +30,14 @@ figure { margin: 20px 0 28px; padding: 0; }
 figure img { max-width: 100%; height: auto; display: block; margin: 0 auto; border: 1px solid #eeeeee; background: #ffffff; }
 figcaption { font-size: 0.86rem; color: #444444; margin-top: 8px; line-height: 1.6; }
 blockquote { border-left: 3px solid #cccccc; margin: 12px 0; padding: 2px 14px; color: #444444; }
+.langswitch { text-align: right; font-size: 0.9rem; margin: 0; }
 footer { margin-top: 48px; padding-top: 12px; border-top: 1px solid #dddddd; font-size: 0.82rem; color: #666666; }
 @media (max-width: 640px) { nav.toc ul { columns: 1; } body { font-size: 15px; } }
 </style>
 </head>
 <body>
 <div class="page">
+<p class="langswitch"><a href="index.en.html">English</a></p>
 <h1 id="metacellcnv">metacellcnv 実行ガイド</h1>
 <nav class="toc">
 <ul>
@@ -62,6 +64,7 @@ footer { margin-top: 48px; padding-top: 12px; border-top: 1px solid #dddddd; fon
 <p><strong>Cell Ranger の出力から出発して、どのオプションでどう走らせると、どんな意味の出力が得られるか。</strong></p>
 <p>このガイドは、処理と校正が多段階になったパイプラインを「入力 → 選択 → 出力の意味」の順に整理したものです。
 先に結論だけ知りたい場合は、§3(参照の選び方)と§8(結果を読むときのチェックリスト)を読んでください。</p>
+<p>English version: <a href="index.en.html">index.en.html</a> / <a href="pipeline_guide.en.md">pipeline_guide.en.md</a></p>
 <h2 id="0">0. このガイドの読み方</h2>
 <ul>
 <li><strong>対象の版</strong>: 作業版の <code>metacellcnv.py</code>(2026-09-29 時点)。オプション名・既定値は <code>--help</code> と実コードで確認しています。</li>
@@ -519,15 +522,27 @@ footer { margin-top: 48px; padding-top: 12px; border-top: 1px solid #dddddd; fon
 <tbody>
 <tr>
 <td><code>pipeline_guide.md</code>、<code>index.html</code></td>
-<td>本ガイドの Markdown 版と HTML 版(同じ内容)</td>
+<td>本ガイド(日本語)の Markdown 版と HTML 版(同じ内容)</td>
+</tr>
+<tr>
+<td><code>pipeline_guide.en.md</code>、<code>index.en.html</code></td>
+<td>英語版の Markdown 版と HTML 版(同じ内容)</td>
+</tr>
+<tr>
+<td><code>build_html.py</code></td>
+<td>Markdown から <code>index.html</code> と <code>index.en.html</code> を生成する</td>
 </tr>
 <tr>
 <td><code>make_diagrams.py</code></td>
-<td>図1・図2(SVG)を生成する</td>
+<td>図1・図2(SVG)を生成する(<code>--lang ja\|en</code>)</td>
 </tr>
 <tr>
 <td><code>make_figures.py</code></td>
-<td><code>docs/data/</code> の CSV から図3〜5を生成する</td>
+<td><code>docs/data/</code> の CSV から図3〜5を生成する(<code>--lang ja\|en</code>)</td>
+</tr>
+<tr>
+<td><code>make_call_figure.py</code></td>
+<td><code>cnv_metacells.h5ad</code> と <code>metacell_obs.csv</code> から図6・図7(正常判定の根拠)を生成する(<code>--lang ja\|en</code>)</td>
 </tr>
 <tr>
 <td><code>data/pos_vs_count.csv</code></td>
@@ -542,8 +557,8 @@ footer { margin-top: 48px; padding-top: 12px; border-top: 1px solid #dddddd; fon
 <td>図5の元表(クラスタ・サンプルごとの細胞型ラベルと参照数、サンプルごとの参照型マーカーの存在数)</td>
 </tr>
 <tr>
-<td><code>img/Case1_normal_call.png</code>、<code>img/Case23_normal_call.png</code></td>
-<td>図6・図7(イヌ腫瘍 2 検体の判定根拠)</td>
+<td><code>img/</code>、<code>img/en/</code></td>
+<td>図(日本語版と英語版)。<code>Case1_normal_call.png</code>、<code>Case23_normal_call.png</code> が図6・図7</td>
 </tr>
 </tbody>
 </table></div>

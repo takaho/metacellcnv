@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 780" width="1000" height="780" font-family="'Noto Sans CJK JP','Hiragino Sans','Yu Gothic','Meiryo',sans-serif" font-size="13">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 780" width="1000" height="780" font-family="'Noto Sans CJK JP','Hiragino Sans','Yu Gothic','Meiryo','Helvetica Neue',Arial,sans-serif" font-size="13">
 <rect width="1000" height="780" fill="#ffffff"/>
 <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#444"/></marker></defs>
 <text x="20" y="26" font-size="15" font-weight="bold">サンプルに応じた「参照」の選び方と、得られる出力の意味</text>
