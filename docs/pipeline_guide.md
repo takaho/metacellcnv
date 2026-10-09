@@ -9,7 +9,7 @@ English version: [index.html](index.html) / [pipeline_guide.en.md](pipeline_guid
 
 ## 0. このガイドの読み方
 
-- **対象の版**: 作業版の `metacellcnv.py`(2026-09-29 時点)。オプション名・既定値は `--help` と実コードで確認しています。
+- **対象の版**: 作業版の `metacellcnv.py`(2026-10-09 時点)。オプション名・既定値は `--help` と実コードで確認しています。2026-10-09 に、`anno_label` を付けるアノテーションと scanpy 前処理を、本体の既定の工程にしました(§6.4、表3)。同日、悪性 vs 正常の DE を同じ型の中でも行う処理を加えました(§6.5)。
 - **†**: 公開リポジトリ(2026-09-17 時点のコミット)にまだ入っていない、作業版のオプション。該当するのは `--sample-kind`、`--cnv-reference external`、`--cnv-external-reference` と、外部参照を作る `build_external_cnv_reference.py` です。
 - **状態の表記**: 各項目は次のいずれかです。
     - **[実装済み]**: パイプラインのオプションとして使える。
@@ -98,6 +98,10 @@ python metacellcnv.py --cellranger-dir <sample>/outs/filtered_feature_bc_matrix 
 | 系譜も出す | 本体に `--lineage`(欠失事象のみを使う。既定 `--lineage-events loss`) |
 | 図とレポート | `python metacellcnv.py --visualize --results-dir results/<sample> [--prep-dir prep/<sample>]` |
 
+本体は、最後に scanpy 前処理(UMAP・クラスタ・QC 表)を `<out-dir>/scanpy/` に自動で出します。以前のように、別のスクリプトで前処理してから `--prep-dir` を渡す必要はありません。
+`--visualize --results-dir results/<sample>` だけで、UMAP の図も出ます。止めるときは `--no-scanpy` を付けます。
+本体の結果(細胞集合・metacell・CNV)は、この追加出力の影響を受けません。
+
 実行の前後で、次の習慣を勧めます。
 
 1. **参照を替える比較は、必ず metacell を再利用する**(`--seacell-assignments`)。metacell の構成が揃うので、差が参照の違いだけになります。
@@ -113,12 +117,16 @@ python metacellcnv.py --cellranger-dir <sample>/outs/filtered_feature_bc_matrix 
 | `metacell_obs.csv` | metacell ごとの表 | 下の表4を参照 |
 | `malignant_call.txt` | 悪性判定の方法と根拠を 1 行で | 方法(reference 法 / gap 法)と閾値が書かれる |
 | `INTERPRETATION_CAVEATS.txt` | この実行に固有の注意 | **必読**。複数検体を並べるときは各検体のものを読み比べる |
+| `metacell_annotation.csv`、`metacell_annotation_report.json` | metacell の型注釈(`anno_label`)の根拠と較正値 | 既定で出る(`--no-metacell-annotation` で止める)。読み方は §6.4 |
+| `scanpy/` | UMAP(`umap3d.tsv.gz`)・クラスタ・QC 表・`prep_manifest.json` | 本体の最後に自動で出る(`--no-scanpy` で止める、`--scanpy-dir` で場所を変える)。`--visualize` が既定でここを読む |
 | `cnv_metacells.h5ad` | metacell × 窓の CNV 行列 | `obsm['X_cnv']` に CNV(スパース。動的閾値で小さい値は 0)、`uns['cnv']['chr_pos']` に染色体ごとの窓の開始位置 |
 | `clone_chromosome_profiles.csv` | クローン × 染色体の平均 CNV | 図のヒートマップの元表。`--cnv-refine` を付けた場合は `_refined` 版も出る |
 | `cell_to_metacell.csv` | バーコード → metacell の対応 | 再利用(`--seacell-assignments`)にも使う |
 | `metacells.h5ad`、`singlecells_qc.h5ad` | metacell 集約後 / QC 後の単一細胞データ | 後者は大きい |
 | `qc_metrics.csv`、`metacell_metrics.csv`、`metacell_mito_qc.csv`、`mito_gene_profile.csv` | QC と mtDNA の検査結果 | mtDNA 構成が不自然な検体は `--no-pctmt-filter` を検討 |
-| `de_malignant_vs_normal.csv` | 悪性 vs 正常の DE | 単一検体の metacell は擬似反復で、p 値は推論に使えない。群が CNV で決まるため循環性もある |
+| `de_malignant_vs_normal.csv` | 悪性 vs 正常の DE(全 metacell の比較) | 悪性と正常は型も違うので、型の違いも拾う。腫瘍そのものの特徴は、同じ型の中の比較(下の行、§6.5)で見る。単一検体の metacell は擬似反復で、p 値は推論に使えない。群が CNV で決まるため循環性もある |
+| `de_malignant_vs_normal_by_subtype.xlsx`、`de_by_subtype/*.csv` | 悪性 vs 正常の DE を、全体と、同じ型(サブタイプ)の中で行った結果 | Excel は比較ごとにシートが分かれ、先頭の `Summary` に各比較の metacell 数・細胞数・遺伝子数・実行しなかった理由が並ぶ(§6.5)。`--no-de-by-subtype` で止める |
+| `figures/de/` | 上の比較ごとの図(`index.html` から開く) | 比較ごとに 1 ファイル。火山プロットと、上位遺伝子の metacell ごとの発現 |
 | `cnv_lineage.nwk`、`cnv_lineage_branches.csv`、`cnv_lineage_events.csv`、`cnv_lineage_report.json` | 系譜(`--lineage` 時のみ) | `has_structure` が偽なら、木を系譜として読んではいけない |
 | `environment.lock.txt` | 実行環境の記録 | 再現のために保管 |
 
@@ -127,10 +135,13 @@ python metacellcnv.py --cellranger-dir <sample>/outs/filtered_feature_bc_matrix 
 | 列 | 意味 |
 |---|---|
 | `n_cells`、`sample_id` | metacell を作る細胞数、由来サンプル |
-| `cell_type` | マーカーによる細胞型。`Myeloid_0` のように粗クラスタ番号が付く。**参照かどうかの判定に使われる** |
+| `cell_type` | 粗クラスタ単位のマーカー注釈。`Myeloid_0` のように粗クラスタ番号が付く。**参照かどうかの判定に使われる**。型の根拠は弱く、図の凡例には使わない(§6.4) |
 | `cnv_score` | CNV プロファイルの L2 ノルム。大きいほど参照からのずれが大きい |
 | `cnv_leiden` | CNV で分けたクローン。悪性 / 正常の判定はこの単位 |
 | `putative_malignant` | `malignant` / `normal` / `unassigned`。`normal` は「参照と区別できない」の意味。**参照なしの実行(gap 法)では、腫瘍と正常の区別ではなく `cnv_score` の内部の二分** |
+| `anno_label` | **根拠のある型注釈**(§6.4)。`Macrophage`、`Tumor:Epithelial`、`Mixed:tumor+normal`、`Unclassified:…` など。図の群分けにはこちらが使われる |
+| `anno_label_kind`、`anno_evidence` | `typed` / `measured-mixture` / `unclassified`、および判定の根拠の文 |
+| `anno_cnv_frac_tumor_cells`、`anno_cnv_mixture_q`、`anno_karyotype_proj` | 混合判定の材料(腫瘍側と判定された細胞の割合、二項検定の q 値、核型射影) |
 | `mito_*`、`ratio_outlier` ほか | mtDNA 由来の品質フラグ |
 
 ## 6. 判定の仕組みと、「参照」の定義
@@ -205,6 +216,69 @@ Case23 では、正常コールの 113 個のうち 18 個が、悪性コール�
 クローン内の metacell が似た状態でばらつきが小さいことが理由と考えています。判定の根拠として使えるのは、ブロック性と腫瘍パターンとの相関のほうです。
 変化点は悪性コール群と正常コール群の差から自動推定したもので、実際の境界より粗い(参考扱い)。
 
+### 6.4 `anno_label` の付け方
+
+`cell_type`(粗クラスタ単位のマーカー注釈)は、参照を決めるための粗い名前で、`Myeloid_0` のような名前は根拠が弱く、図の凡例には向きません。
+`anno_label` は、**metacell ごとに、根拠を測りながら**付ける注釈です。`--visualize` は、`anno_label` があれば図の群分け(UMAP の散布図、CNV ヒートマップ、DEG の図)に必ずこちらを使います。
+`metacell_obs.csv` に `anno_label` がないと、`cell_type` に落ちて警告が出ます。
+
+**既定で付きます**(`--no-metacell-annotation` で止められます)。付け方は次の 4 段階です。
+
+1. **細胞ごとの核型射影**: 悪性 / 正常と判定された metacell の染色体ごとの平均 log2 比を「核型」とし、単一細胞をそれに射影します。射影値の分布を 2 成分の混合モデルで二峰に分け、腫瘍側 / 正常側の閾値を決めます。二峰性が確認できなければ、混合判定は行いません。
+2. **混合の測定**: metacell ごとに腫瘍側の細胞の割合を数え、二項検定(FDR `--annotation-mixture-fdr`、既定 0.05)で有意なら `Mixed:tumor+normal` とします。
+3. **型の判定**: 混合でない metacell は、型ごとのパネル(`--markers` の表)の集計スコアで型を決めます。閾値は、細胞と metacell の対応をシャッフルした帰無分布から FDR(`--annotation-panel-fdr`、既定 0.01、シャッフル回数 `--annotation-perm`、既定 30)で決めます。**ちょうど 1 つの型が閾値を超え、かつ 3 遺伝子以上が個別に超えたときだけ**型を付けます。付けた型は、核型の側に応じて `Tumor:<型>` または `<型>` になります。
+4. **決められないものは理由つきで保留**します。
+
+**表6. `anno_label` の値**
+
+| 値 | 種別(`anno_label_kind`) | 意味 |
+|---|---|---|
+| `<型>`(例 `Macrophage`) | typed | 正常側の核型で、型が 1 つに決まった |
+| `Tumor:<型>`(例 `Tumor:Epithelial`) | typed | 腫瘍側の核型で、型が 1 つに決まった |
+| `Mixed:tumor+normal` | measured-mixture | 腫瘍細胞と正常細胞の混合を、二項検定で測定した |
+| `Tumor:Unclassified` | unclassified | 腫瘍側だが、型が閾値を超えない(表現型は不明) |
+| `Unclassified:multiple-types` | unclassified | 2 つ以上の型が同時に閾値を超え、1 つに絞れない |
+| `Unclassified:low-depth` | unclassified | 型を判定できる細胞(2,000 遺伝子以上が検出された細胞)が少なすぎる |
+| `Unclassified:no-dominant-type` | unclassified | 判定できる細胞はあるが、型が際立たない |
+
+読むときの注意は次の通りです。
+
+- **型を付けられるのは、パネルが「判定用」の型だけです**。検証済みのイヌの表では Macrophage、Endothelial、Fibroblast、Epithelial の 4 型です。T/NK、B/Plasma、SmoothMuscle は「参考値」(スコアは出るが型は付けない)なので、`anno_label` に T 細胞や B 細胞は現れません。パネルは 3 遺伝子以上がデータにあるものだけが使われます。
+- human・mouse の表は、命名の変換だけで未検証です。使うと「検証されていないパネルを使う」という警告が出ます。腫瘍だけの細胞株(SNU-638 の試験)では、11 metacell が全部 `Unclassified:no-dominant-type` になりました。これは想定どおりの結果です。
+- **核型は、悪性判定(`putative_malignant`)から作ります**。参照がない実行(表1 の D、gap 法)では、悪性 / 正常が腫瘍 vs 正常ではないので、`Tumor:` の接頭辞と `Mixed:` の判定に意味がありません。この場合に使えるのは、接頭辞を外した型の部分だけです。
+- 型は metacell 単位です。`cell_type`(粗クラスタ)は上書きされません。
+
+**既存の結果に後から付けたいとき**は、同じ入力で、metacell を再利用して別の `--out-dir` に出します(`--seacell-assignments results/<sample>/cell_to_metacell.csv`)。`metacell_annotation.csv` が `metacell_obs.csv` と同じ場所にあれば、`--visualize` はそれを `anno_label` として読み込みます。
+
+### 6.5 悪性 vs 正常の DE:全体と、同じ型の中
+
+`de_malignant_vs_normal.csv` は、**全部の悪性 metacell と全部の正常 metacell** の比較です。悪性側は腫瘍上皮、正常側は免疫細胞や間質、というように型が違うので、上位の遺伝子には**型の違い**が混ざります。
+この表と、型で群分けした図(図9、`de_report.html`)だけでは、腫瘍そのものの特徴は分かりません。そこで、**同じ型の中で悪性と正常を比べる**処理を加えました。
+
+1. **型**は `anno_label` から `Tumor:` を除いたものです(§6.4)。`Unclassified:…` と `Mixed:…` は、1 つの型を指さないので型として扱いません。`anno_label` がなければ `cell_type` に落ち、警告が出ます。
+2. **比較**は、全体(`Overall`)と、悪性・正常の**両方の群**に十分なデータがある型です。条件は、各群で metacell が `--de-min-metacells` 個(既定 3)以上、細胞数(metacell の `n_cells` の合計)が `--de-min-cells` 個(既定 100)以上です。満たさない型は実行せず、理由を `Summary` に書きます。
+3. **検定**は、本体の DE と同じ pyDESeq2(metacell 単位、共変量 `sample_id`)で、悪性 vs 正常です。`log2FoldChange` が正なら悪性で高い遺伝子です。
+4. **出力**は、Excel(`de_malignant_vs_normal_by_subtype.xlsx`)の比較ごとのシートと、比較ごとの図(`figures/de/de_<名前>.html`、入口は `figures/de/index.html`)です。図は、火山プロットと、上位 12 遺伝子(上がる側・下がる側が半々)の metacell ごとの発現(log1p CPM)です。
+    - 表の `direction` は、padj < 0.05、|log2FoldChange| ≥ 0.5、baseMean ≥ 5 を満たす遺伝子を `up in malignant` / `down in malignant` とし、それ以外を `ns` とします。`mean_logCPM_malignant`、`mean_logCPM_normal` は各群の平均発現です。
+    - 本体を実行すると表と Excel が出ます。図は `--visualize` が描きます。表がない古い結果に `--visualize` を実行すると、その場で DE も行います(`metacells.h5ad` と `metacell_obs.csv` が必要)。
+
+実行例は次の通りです。
+
+```bash
+# 本体(既定で表と Excel が出る)
+python metacellcnv.py ... --out-dir results/<sample>
+# 図(表がなければ DE も行う)。基準を変えるとき
+python metacellcnv.py --visualize --results-dir results/<sample> --de-min-cells 50 --de-min-metacells 3
+# DE だけをやり直す
+python metacellcnv.py --de --results-dir results/<sample> --recompute
+```
+
+読むときの注意は次の通りです。
+
+- **型の中の比較は、成立しない型が多い**です。試験した Case1 では、悪性 65・正常 299 metacell のうち、両群が基準を満たしたのは Fibroblast(悪性 8 個・468 細胞、正常 4 個・310 細胞)だけでした。Epithelial は悪性 43 個に対して正常が 1 個、Macrophage は悪性が 0 個です。Case23 でも Fibroblast(悪性 3 個、正常 16 個)だけで、有意な遺伝子は出ませんでした。**正常な上皮細胞が含まれない試料では、腫瘍上皮どうしの比較は作れません**。その場合の腫瘍の特徴は、全体の比較からしか得られず、型の違いを含んでいます。
+- 群が小さい比較(8 個 vs 4 個など)は、p 値が小さくても不安定です。`Summary` の metacell 数を確認してください。
+- 悪性 / 正常は CNV の判定から、型は注釈から決まり、どちらも同じデータに依存します(循環性)。metacell は擬似反復なので、p 値は遺伝子を順位づける目安で、証拠ではありません。padj は比較ごとに補正していて、比較をまたぐ補正はしていません。
+
 ## 7. 参照なし・別サンプル参照の信頼性(検証結果)
 
 サンプル内に参照がない場合(表1 の C・D)に、どこまで CNV を信頼できるかを、正解のわかるデータで測りました。
@@ -260,7 +334,7 @@ Case23 では、正常コールの 113 個のうち 18 個が、悪性コール�
 5. 「正常」と判定されたクローンで、腫瘍パターンとの相関やブロック性が高くないか(図6・図7 の (h)(i))。
 6. 参照が別サンプルや公開データなら、「判定不明の領域」と「サンプル間のずれ」を結果に明記したか(§7)。
 7. 参照なし(表1 の D)の結果を、絶対的な CNV として書いていないか。見えているのはサブクローン間の相対差だけ。`malignant_call.txt` が gap 法なら、`putative_malignant` を腫瘍 vs 正常と読んでいないか(クローンが 2 個だと必ず二分される)。
-8. DE の p 値を推論に使っていないか(擬似反復・循環性)。
+8. DE の p 値を推論に使っていないか(擬似反復・循環性)。腫瘍の特徴を、全体の比較だけで語っていないか(型の違いが混ざる)。同じ型の中の比較(§6.5)の群の大きさを確認したか。
 9. 系譜は `has_structure` が真のときだけ読んでいるか。
 10. 重要な結論は CopyKAT や SCEVAN など別の方法でも確認したか。
 
@@ -283,6 +357,8 @@ Case23 では、正常コールの 113 個のうち 18 個が、悪性コール�
 | mtDNA 遺伝子が見つからない警告 | Cell Ranger の参照に mtDNA が含まれていない可能性。pctMT による QC は機能しないので `--no-pctmt-filter` を付ける |
 | 「正常参照が確保できません」で止まる | 参照型の細胞が 1 個もない。腫瘍だけのサンプルなら `--cnv-reference none` を明示する。正常と分かるクラスタがあれば `--normal-clusters` で指定する(§3) |
 | 参照が少なく DE が出ない | 参照 metacell が 3 個未満だと単一株相当とみなして DE をスキップする(`--sample-kind`†)。CNV の判定は出力される |
+| `--visualize` で「`anno_label` がないので `cell_type` を使う」と警告が出る | `--no-metacell-annotation` で実行した、または古い版の出力。同じ入力で metacell を再利用して(`--seacell-assignments`)再実行する(§6.4) |
+| `--visualize` に UMAP の図が出ない | `<out-dir>/scanpy/umap3d.tsv.gz` がない。`--no-scanpy` で実行した、または別の場所に出した(`--prep-dir` で指定する) |
 | 悪性判定が全部 `unassigned` | gap 法で明確な二峰性がなく、判定を放棄した。クローンが 1 個のときも同じ。`--cells-per-metacell` を下げて解像度を上げるか、`--normal-clusters` で群を指定する |
 | `cnv_metacells.h5ad` を anndata 0.11.4 で読むと `uns/log1p/base` で失敗する | 保存された `log1p` が null のため。ファイルを複製して `h5py` で `uns/log1p` を削除すれば読める |
 | メモリ不足(約 4 GB の環境で doublet 検出が OOM になった例) | 細胞数の多いサンプルは、メモリに余裕のある環境で実行する |

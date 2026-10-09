@@ -51,6 +51,8 @@ footer { margin-top: 48px; padding-top: 12px; border-top: 1px solid #dddddd; fon
 <li class="l3"><a href="#61">6.1 参照とは</a></li>
 <li class="l3"><a href="#62">6.2 腫瘍だけのサンプルでは、参照は何個数えられるか</a></li>
 <li class="l3"><a href="#63-cnv">6.3 「正常」の判定が CNV の構造に支えられているか</a></li>
+<li class="l3"><a href="#64-anno_label">6.4 anno_label の付け方</a></li>
+<li class="l3"><a href="#65-vs-de">6.5 悪性 vs 正常の DE:全体と、同じ型の中</a></li>
 <li class="l2"><a href="#7">7. 参照なし・別サンプル参照の信頼性(検証結果)</a></li>
 <li class="l3"><a href="#71">7.1 検証の設計</a></li>
 <li class="l3"><a href="#72">7.2 結果</a></li>
@@ -67,7 +69,7 @@ footer { margin-top: 48px; padding-top: 12px; border-top: 1px solid #dddddd; fon
 <p>English version: <a href="index.html">index.html</a> / <a href="pipeline_guide.en.md">pipeline_guide.en.md</a></p>
 <h2 id="0">0. このガイドの読み方</h2>
 <ul>
-<li><strong>対象の版</strong>: 作業版の <code>metacellcnv.py</code>(2026-09-29 時点)。オプション名・既定値は <code>--help</code> と実コードで確認しています。</li>
+<li><strong>対象の版</strong>: 作業版の <code>metacellcnv.py</code>(2026-10-09 時点)。オプション名・既定値は <code>--help</code> と実コードで確認しています。2026-10-09 に、<code>anno_label</code> を付けるアノテーションと scanpy 前処理を、本体の既定の工程にしました(§6.4、表3)。同日、悪性 vs 正常の DE を同じ型の中でも行う処理を加えました(§6.5)。</li>
 <li><strong>†</strong>: 公開リポジトリ(2026-09-17 時点のコミット)にまだ入っていない、作業版のオプション。該当するのは <code>--sample-kind</code>、<code>--cnv-reference external</code>、<code>--cnv-external-reference</code> と、外部参照を作る <code>build_external_cnv_reference.py</code> です。</li>
 <li><strong>状態の表記</strong>: 各項目は次のいずれかです。<ul>
 <li><strong>[実装済み]</strong>: パイプラインのオプションとして使える。</li>
@@ -230,6 +232,9 @@ footer { margin-top: 48px; padding-top: 12px; border-top: 1px solid #dddddd; fon
 </tr>
 </tbody>
 </table></div>
+<p>本体は、最後に scanpy 前処理(UMAP・クラスタ・QC 表)を <code>&lt;out-dir&gt;/scanpy/</code> に自動で出します。以前のように、別のスクリプトで前処理してから <code>--prep-dir</code> を渡す必要はありません。
+<code>--visualize --results-dir results/&lt;sample&gt;</code> だけで、UMAP の図も出ます。止めるときは <code>--no-scanpy</code> を付けます。
+本体の結果(細胞集合・metacell・CNV)は、この追加出力の影響を受けません。</p>
 <p>実行の前後で、次の習慣を勧めます。</p>
 <ol>
 <li><strong>参照を替える比較は、必ず metacell を再利用する</strong>(<code>--seacell-assignments</code>)。metacell の構成が揃うので、差が参照の違いだけになります。</li>
@@ -263,6 +268,16 @@ footer { margin-top: 48px; padding-top: 12px; border-top: 1px solid #dddddd; fon
 <td><strong>必読</strong>。複数検体を並べるときは各検体のものを読み比べる</td>
 </tr>
 <tr>
+<td><code>metacell_annotation.csv</code>、<code>metacell_annotation_report.json</code></td>
+<td>metacell の型注釈(<code>anno_label</code>)の根拠と較正値</td>
+<td>既定で出る(<code>--no-metacell-annotation</code> で止める)。読み方は §6.4</td>
+</tr>
+<tr>
+<td><code>scanpy/</code></td>
+<td>UMAP(<code>umap3d.tsv.gz</code>)・クラスタ・QC 表・<code>prep_manifest.json</code></td>
+<td>本体の最後に自動で出る(<code>--no-scanpy</code> で止める、<code>--scanpy-dir</code> で場所を変える)。<code>--visualize</code> が既定でここを読む</td>
+</tr>
+<tr>
 <td><code>cnv_metacells.h5ad</code></td>
 <td>metacell × 窓の CNV 行列</td>
 <td><code>obsm['X_cnv']</code> に CNV(スパース。動的閾値で小さい値は 0)、<code>uns['cnv']['chr_pos']</code> に染色体ごとの窓の開始位置</td>
@@ -289,8 +304,18 @@ footer { margin-top: 48px; padding-top: 12px; border-top: 1px solid #dddddd; fon
 </tr>
 <tr>
 <td><code>de_malignant_vs_normal.csv</code></td>
-<td>悪性 vs 正常の DE</td>
-<td>単一検体の metacell は擬似反復で、p 値は推論に使えない。群が CNV で決まるため循環性もある</td>
+<td>悪性 vs 正常の DE(全 metacell の比較)</td>
+<td>悪性と正常は型も違うので、型の違いも拾う。腫瘍そのものの特徴は、同じ型の中の比較(下の行、§6.5)で見る。単一検体の metacell は擬似反復で、p 値は推論に使えない。群が CNV で決まるため循環性もある</td>
+</tr>
+<tr>
+<td><code>de_malignant_vs_normal_by_subtype.xlsx</code>、<code>de_by_subtype/*.csv</code></td>
+<td>悪性 vs 正常の DE を、全体と、同じ型(サブタイプ)の中で行った結果</td>
+<td>Excel は比較ごとにシートが分かれ、先頭の <code>Summary</code> に各比較の metacell 数・細胞数・遺伝子数・実行しなかった理由が並ぶ(§6.5)。<code>--no-de-by-subtype</code> で止める</td>
+</tr>
+<tr>
+<td><code>figures/de/</code></td>
+<td>上の比較ごとの図(<code>index.html</code> から開く)</td>
+<td>比較ごとに 1 ファイル。火山プロットと、上位遺伝子の metacell ごとの発現</td>
 </tr>
 <tr>
 <td><code>cnv_lineage.nwk</code>、<code>cnv_lineage_branches.csv</code>、<code>cnv_lineage_events.csv</code>、<code>cnv_lineage_report.json</code></td>
@@ -319,7 +344,7 @@ footer { margin-top: 48px; padding-top: 12px; border-top: 1px solid #dddddd; fon
 </tr>
 <tr>
 <td><code>cell_type</code></td>
-<td>マーカーによる細胞型。<code>Myeloid_0</code> のように粗クラスタ番号が付く。<strong>参照かどうかの判定に使われる</strong></td>
+<td>粗クラスタ単位のマーカー注釈。<code>Myeloid_0</code> のように粗クラスタ番号が付く。<strong>参照かどうかの判定に使われる</strong>。型の根拠は弱く、図の凡例には使わない(§6.4)</td>
 </tr>
 <tr>
 <td><code>cnv_score</code></td>
@@ -332,6 +357,18 @@ footer { margin-top: 48px; padding-top: 12px; border-top: 1px solid #dddddd; fon
 <tr>
 <td><code>putative_malignant</code></td>
 <td><code>malignant</code> / <code>normal</code> / <code>unassigned</code>。<code>normal</code> は「参照と区別できない」の意味。<strong>参照なしの実行(gap 法)では、腫瘍と正常の区別ではなく <code>cnv_score</code> の内部の二分</strong></td>
+</tr>
+<tr>
+<td><code>anno_label</code></td>
+<td><strong>根拠のある型注釈</strong>(§6.4)。<code>Macrophage</code>、<code>Tumor:Epithelial</code>、<code>Mixed:tumor+normal</code>、<code>Unclassified:…</code> など。図の群分けにはこちらが使われる</td>
+</tr>
+<tr>
+<td><code>anno_label_kind</code>、<code>anno_evidence</code></td>
+<td><code>typed</code> / <code>measured-mixture</code> / <code>unclassified</code>、および判定の根拠の文</td>
+</tr>
+<tr>
+<td><code>anno_cnv_frac_tumor_cells</code>、<code>anno_cnv_mixture_q</code>、<code>anno_karyotype_proj</code></td>
+<td>混合判定の材料(腫瘍側と判定された細胞の割合、二項検定の q 値、核型射影)</td>
 </tr>
 <tr>
 <td><code>mito_*</code>、<code>ratio_outlier</code> ほか</td>
@@ -400,6 +437,99 @@ footer { margin-top: 48px; padding-top: 12px; border-top: 1px solid #dddddd; fon
 <p>なお、重ならない隣接窓の相関(図6・図7 の (f)(g))は、群の内部では 0.04〜0.1 と低く、変化点をまたぐかどうかの差も一貫しません。
 クローン内の metacell が似た状態でばらつきが小さいことが理由と考えています。判定の根拠として使えるのは、ブロック性と腫瘍パターンとの相関のほうです。
 変化点は悪性コール群と正常コール群の差から自動推定したもので、実際の境界より粗い(参考扱い)。</p>
+<h3 id="64-anno_label">6.4 <code>anno_label</code> の付け方</h3>
+<p><code>cell_type</code>(粗クラスタ単位のマーカー注釈)は、参照を決めるための粗い名前で、<code>Myeloid_0</code> のような名前は根拠が弱く、図の凡例には向きません。
+<code>anno_label</code> は、<strong>metacell ごとに、根拠を測りながら</strong>付ける注釈です。<code>--visualize</code> は、<code>anno_label</code> があれば図の群分け(UMAP の散布図、CNV ヒートマップ、DEG の図)に必ずこちらを使います。
+<code>metacell_obs.csv</code> に <code>anno_label</code> がないと、<code>cell_type</code> に落ちて警告が出ます。</p>
+<p><strong>既定で付きます</strong>(<code>--no-metacell-annotation</code> で止められます)。付け方は次の 4 段階です。</p>
+<ol>
+<li><strong>細胞ごとの核型射影</strong>: 悪性 / 正常と判定された metacell の染色体ごとの平均 log2 比を「核型」とし、単一細胞をそれに射影します。射影値の分布を 2 成分の混合モデルで二峰に分け、腫瘍側 / 正常側の閾値を決めます。二峰性が確認できなければ、混合判定は行いません。</li>
+<li><strong>混合の測定</strong>: metacell ごとに腫瘍側の細胞の割合を数え、二項検定(FDR <code>--annotation-mixture-fdr</code>、既定 0.05)で有意なら <code>Mixed:tumor+normal</code> とします。</li>
+<li><strong>型の判定</strong>: 混合でない metacell は、型ごとのパネル(<code>--markers</code> の表)の集計スコアで型を決めます。閾値は、細胞と metacell の対応をシャッフルした帰無分布から FDR(<code>--annotation-panel-fdr</code>、既定 0.01、シャッフル回数 <code>--annotation-perm</code>、既定 30)で決めます。<strong>ちょうど 1 つの型が閾値を超え、かつ 3 遺伝子以上が個別に超えたときだけ</strong>型を付けます。付けた型は、核型の側に応じて <code>Tumor:&lt;型&gt;</code> または <code>&lt;型&gt;</code> になります。</li>
+<li><strong>決められないものは理由つきで保留</strong>します。</li>
+</ol>
+<p><strong>表6. <code>anno_label</code> の値</strong></p>
+<div class="tablewrap"><table>
+<thead>
+<tr>
+<th>値</th>
+<th>種別(<code>anno_label_kind</code>)</th>
+<th>意味</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>&lt;型&gt;</code>(例 <code>Macrophage</code>)</td>
+<td>typed</td>
+<td>正常側の核型で、型が 1 つに決まった</td>
+</tr>
+<tr>
+<td><code>Tumor:&lt;型&gt;</code>(例 <code>Tumor:Epithelial</code>)</td>
+<td>typed</td>
+<td>腫瘍側の核型で、型が 1 つに決まった</td>
+</tr>
+<tr>
+<td><code>Mixed:tumor+normal</code></td>
+<td>measured-mixture</td>
+<td>腫瘍細胞と正常細胞の混合を、二項検定で測定した</td>
+</tr>
+<tr>
+<td><code>Tumor:Unclassified</code></td>
+<td>unclassified</td>
+<td>腫瘍側だが、型が閾値を超えない(表現型は不明)</td>
+</tr>
+<tr>
+<td><code>Unclassified:multiple-types</code></td>
+<td>unclassified</td>
+<td>2 つ以上の型が同時に閾値を超え、1 つに絞れない</td>
+</tr>
+<tr>
+<td><code>Unclassified:low-depth</code></td>
+<td>unclassified</td>
+<td>型を判定できる細胞(2,000 遺伝子以上が検出された細胞)が少なすぎる</td>
+</tr>
+<tr>
+<td><code>Unclassified:no-dominant-type</code></td>
+<td>unclassified</td>
+<td>判定できる細胞はあるが、型が際立たない</td>
+</tr>
+</tbody>
+</table></div>
+<p>読むときの注意は次の通りです。</p>
+<ul>
+<li><strong>型を付けられるのは、パネルが「判定用」の型だけです</strong>。検証済みのイヌの表では Macrophage、Endothelial、Fibroblast、Epithelial の 4 型です。T/NK、B/Plasma、SmoothMuscle は「参考値」(スコアは出るが型は付けない)なので、<code>anno_label</code> に T 細胞や B 細胞は現れません。パネルは 3 遺伝子以上がデータにあるものだけが使われます。</li>
+<li>human・mouse の表は、命名の変換だけで未検証です。使うと「検証されていないパネルを使う」という警告が出ます。腫瘍だけの細胞株(SNU-638 の試験)では、11 metacell が全部 <code>Unclassified:no-dominant-type</code> になりました。これは想定どおりの結果です。</li>
+<li><strong>核型は、悪性判定(<code>putative_malignant</code>)から作ります</strong>。参照がない実行(表1 の D、gap 法)では、悪性 / 正常が腫瘍 vs 正常ではないので、<code>Tumor:</code> の接頭辞と <code>Mixed:</code> の判定に意味がありません。この場合に使えるのは、接頭辞を外した型の部分だけです。</li>
+<li>型は metacell 単位です。<code>cell_type</code>(粗クラスタ)は上書きされません。</li>
+</ul>
+<p><strong>既存の結果に後から付けたいとき</strong>は、同じ入力で、metacell を再利用して別の <code>--out-dir</code> に出します(<code>--seacell-assignments results/&lt;sample&gt;/cell_to_metacell.csv</code>)。<code>metacell_annotation.csv</code> が <code>metacell_obs.csv</code> と同じ場所にあれば、<code>--visualize</code> はそれを <code>anno_label</code> として読み込みます。</p>
+<h3 id="65-vs-de">6.5 悪性 vs 正常の DE:全体と、同じ型の中</h3>
+<p><code>de_malignant_vs_normal.csv</code> は、<strong>全部の悪性 metacell と全部の正常 metacell</strong> の比較です。悪性側は腫瘍上皮、正常側は免疫細胞や間質、というように型が違うので、上位の遺伝子には<strong>型の違い</strong>が混ざります。
+この表と、型で群分けした図(図9、<code>de_report.html</code>)だけでは、腫瘍そのものの特徴は分かりません。そこで、<strong>同じ型の中で悪性と正常を比べる</strong>処理を加えました。</p>
+<ol>
+<li><strong>型</strong>は <code>anno_label</code> から <code>Tumor:</code> を除いたものです(§6.4)。<code>Unclassified:…</code> と <code>Mixed:…</code> は、1 つの型を指さないので型として扱いません。<code>anno_label</code> がなければ <code>cell_type</code> に落ち、警告が出ます。</li>
+<li><strong>比較</strong>は、全体(<code>Overall</code>)と、悪性・正常の<strong>両方の群</strong>に十分なデータがある型です。条件は、各群で metacell が <code>--de-min-metacells</code> 個(既定 3)以上、細胞数(metacell の <code>n_cells</code> の合計)が <code>--de-min-cells</code> 個(既定 100)以上です。満たさない型は実行せず、理由を <code>Summary</code> に書きます。</li>
+<li><strong>検定</strong>は、本体の DE と同じ pyDESeq2(metacell 単位、共変量 <code>sample_id</code>)で、悪性 vs 正常です。<code>log2FoldChange</code> が正なら悪性で高い遺伝子です。</li>
+<li><strong>出力</strong>は、Excel(<code>de_malignant_vs_normal_by_subtype.xlsx</code>)の比較ごとのシートと、比較ごとの図(<code>figures/de/de_&lt;名前&gt;.html</code>、入口は <code>figures/de/index.html</code>)です。図は、火山プロットと、上位 12 遺伝子(上がる側・下がる側が半々)の metacell ごとの発現(log1p CPM)です。<ul>
+<li>表の <code>direction</code> は、padj &lt; 0.05、|log2FoldChange| ≥ 0.5、baseMean ≥ 5 を満たす遺伝子を <code>up in malignant</code> / <code>down in malignant</code> とし、それ以外を <code>ns</code> とします。<code>mean_logCPM_malignant</code>、<code>mean_logCPM_normal</code> は各群の平均発現です。</li>
+<li>本体を実行すると表と Excel が出ます。図は <code>--visualize</code> が描きます。表がない古い結果に <code>--visualize</code> を実行すると、その場で DE も行います(<code>metacells.h5ad</code> と <code>metacell_obs.csv</code> が必要)。</li>
+</ul>
+</li>
+</ol>
+<p>実行例は次の通りです。</p>
+<pre><code class="language-bash"># 本体(既定で表と Excel が出る)
+python metacellcnv.py ... --out-dir results/&lt;sample&gt;
+# 図(表がなければ DE も行う)。基準を変えるとき
+python metacellcnv.py --visualize --results-dir results/&lt;sample&gt; --de-min-cells 50 --de-min-metacells 3
+# DE だけをやり直す
+python metacellcnv.py --de --results-dir results/&lt;sample&gt; --recompute
+</code></pre>
+<p>読むときの注意は次の通りです。</p>
+<ul>
+<li><strong>型の中の比較は、成立しない型が多い</strong>です。試験した Case1 では、悪性 65・正常 299 metacell のうち、両群が基準を満たしたのは Fibroblast(悪性 8 個・468 細胞、正常 4 個・310 細胞)だけでした。Epithelial は悪性 43 個に対して正常が 1 個、Macrophage は悪性が 0 個です。Case23 でも Fibroblast(悪性 3 個、正常 16 個)だけで、有意な遺伝子は出ませんでした。<strong>正常な上皮細胞が含まれない試料では、腫瘍上皮どうしの比較は作れません</strong>。その場合の腫瘍の特徴は、全体の比較からしか得られず、型の違いを含んでいます。</li>
+<li>群が小さい比較(8 個 vs 4 個など)は、p 値が小さくても不安定です。<code>Summary</code> の metacell 数を確認してください。</li>
+<li>悪性 / 正常は CNV の判定から、型は注釈から決まり、どちらも同じデータに依存します(循環性)。metacell は擬似反復なので、p 値は遺伝子を順位づける目安で、証拠ではありません。padj は比較ごとに補正していて、比較をまたぐ補正はしていません。</li>
+</ul>
 <h2 id="7">7. 参照なし・別サンプル参照の信頼性(検証結果)</h2>
 <p>サンプル内に参照がない場合(表1 の C・D)に、どこまで CNV を信頼できるかを、正解のわかるデータで測りました。
 <strong>この節の方針は検証済みですが、パイプラインには未実装です</strong>(再現用のスクリプトは作業ディレクトリの <code>_geo_cnv/</code> にあり、公開リポジトリには含めていません。結果の表は <code>docs/data/</code> にあります)。</p>
@@ -453,7 +583,7 @@ footer { margin-top: 48px; padding-top: 12px; border-top: 1px solid #dddddd; fon
 <li>「正常」と判定されたクローンで、腫瘍パターンとの相関やブロック性が高くないか(図6・図7 の (h)(i))。</li>
 <li>参照が別サンプルや公開データなら、「判定不明の領域」と「サンプル間のずれ」を結果に明記したか(§7)。</li>
 <li>参照なし(表1 の D)の結果を、絶対的な CNV として書いていないか。見えているのはサブクローン間の相対差だけ。<code>malignant_call.txt</code> が gap 法なら、<code>putative_malignant</code> を腫瘍 vs 正常と読んでいないか(クローンが 2 個だと必ず二分される)。</li>
-<li>DE の p 値を推論に使っていないか(擬似反復・循環性)。</li>
+<li>DE の p 値を推論に使っていないか(擬似反復・循環性)。腫瘍の特徴を、全体の比較だけで語っていないか(型の違いが混ざる)。同じ型の中の比較(§6.5)の群の大きさを確認したか。</li>
 <li>系譜は <code>has_structure</code> が真のときだけ読んでいるか。</li>
 <li>重要な結論は CopyKAT や SCEVAN など別の方法でも確認したか。</li>
 </ol>
@@ -495,6 +625,14 @@ footer { margin-top: 48px; padding-top: 12px; border-top: 1px solid #dddddd; fon
 <tr>
 <td>参照が少なく DE が出ない</td>
 <td>参照 metacell が 3 個未満だと単一株相当とみなして DE をスキップする(<code>--sample-kind</code>†)。CNV の判定は出力される</td>
+</tr>
+<tr>
+<td><code>--visualize</code> で「<code>anno_label</code> がないので <code>cell_type</code> を使う」と警告が出る</td>
+<td><code>--no-metacell-annotation</code> で実行した、または古い版の出力。同じ入力で metacell を再利用して(<code>--seacell-assignments</code>)再実行する(§6.4)</td>
+</tr>
+<tr>
+<td><code>--visualize</code> に UMAP の図が出ない</td>
+<td><code>&lt;out-dir&gt;/scanpy/umap3d.tsv.gz</code> がない。<code>--no-scanpy</code> で実行した、または別の場所に出した(<code>--prep-dir</code> で指定する)</td>
 </tr>
 <tr>
 <td>悪性判定が全部 <code>unassigned</code></td>

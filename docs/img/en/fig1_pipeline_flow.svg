@@ -46,17 +46,18 @@
 <text x="394" y="495" font-family="monospace" font-size="12" fill="#222">--malignant-n-sd 3.0  --min-clone-gap 0.25</text>
 <line x1="190" y1="520" x2="190" y2="544" stroke="#444" stroke-width="1.4" marker-end="url(#ar)"/>
 <rect x="20" y="544" width="340" height="76" rx="6" fill="#eef4fb" stroke="#444" stroke-width="1.2"/>
-<text x="190.0" y="577.0" text-anchor="middle" font-size="13" font-weight="bold">6. Optional analyses</text>
-<text x="190.0" y="595.0" text-anchor="middle" font-size="13">Lineage (Dollo), metacell annotation, DE</text>
+<text x="190.0" y="577.0" text-anchor="middle" font-size="13" font-weight="bold">6. Annotation, lineage, DE</text>
+<text x="190.0" y="595.0" text-anchor="middle" font-size="13">Metacell annotation (anno_label), lineage (Dollo), DE</text>
 <line x1="360" y1="582" x2="388" y2="582" stroke="#999" stroke-dasharray="3,3"/>
 <text x="394" y="568" font-family="monospace" font-size="12" fill="#222">--lineage  --lineage-level  --lineage-events</text>
-<text x="394" y="586" font-family="monospace" font-size="12" fill="#222">--metacell-annotation</text>
+<text x="394" y="586" font-family="monospace" font-size="12" fill="#222">--no-metacell-annotation (anno_label is on by default; Sec. 6.4)</text>
 <text x="394" y="604" font-family="monospace" font-size="12" fill="#222">--sample-kind† {auto|tissue|cell-line} (whether to run DE)</text>
 <line x1="190" y1="620" x2="190" y2="644" stroke="#444" stroke-width="1.4" marker-end="url(#ar)"/>
 <rect x="20" y="644" width="340" height="76" rx="6" fill="#eef4fb" stroke="#444" stroke-width="1.2"/>
 <text x="190.0" y="668.0" text-anchor="middle" font-size="13" font-weight="bold">7. Output / plots</text>
-<text x="190.0" y="686.0" text-anchor="middle" font-size="13">metacell_obs.csv etc. (Table 3)</text>
+<text x="190.0" y="686.0" text-anchor="middle" font-size="13">metacell_obs.csv etc. (Table 3), scanpy/ (UMAP)</text>
 <text x="190.0" y="704.0" text-anchor="middle" font-size="13">figures and report: metacellcnv_visualize.py</text>
 <line x1="360" y1="682" x2="388" y2="682" stroke="#999" stroke-dasharray="3,3"/>
-<text x="394" y="686" font-family="monospace" font-size="12" fill="#222">--results-dir  --prep-dir  --engine {plotly|matplotlib|both}</text>
+<text x="394" y="677" font-family="monospace" font-size="12" fill="#222">--results-dir  --engine {plotly|matplotlib|both}</text>
+<text x="394" y="695" font-family="monospace" font-size="12" fill="#222">--no-scanpy  --scanpy-dir (UMAP / QC tables go to &lt;out-dir&gt;/scanpy)</text>
 </svg>

@@ -13,6 +13,8 @@ Usage:
 Outputs (--engine plotly, the default):
     figures/report.html              Combined HTML report (QC, metacell quality, CNV heatmap, lineage tree)
     figures/de_report.html           DEG swarm plot, as its own report (not merged into report.html)
+    figures/de/index.html            Malignant vs normal DE, overall and within each subtype (one HTML per comparison)
+    de_malignant_vs_normal_by_subtype.xlsx   Statistics of those comparisons, one sheet per comparison
     figures/NN_<name>.png            Each report.html/de_report.html figure, exported as PNG (needs kaleido)
     figures/NN_<name>.pdf            Same figures, exported as PDF (needs kaleido)
 
@@ -1828,6 +1830,17 @@ def main(argv: list[str] | None = None) -> int:
         help="Output of metacellcnv_scanpy (umap3d.tsv.gz etc). "
         "When given, also draws the UMAP scatter panels. Defaults to <results>/scanpy if it exists",
     )
+    parser.add_argument("--no-de-by-subtype", action="store_true",
+                        help="Skip the malignant-vs-normal DE figures (overall and within each subtype) "
+                             "and the Excel workbook")
+    parser.add_argument("--de-min-metacells", type=int, default=3,
+                        help="Subtype comparison needs at least this many metacells in EACH of malignant and normal (default 3)")
+    parser.add_argument("--de-min-cells", type=int, default=100,
+                        help="...and at least this many cells in EACH group (default 100)")
+    parser.add_argument("--de-top-n", type=int, default=12,
+                        help="Genes shown in the expression panel of each DE figure (default 12)")
+    parser.add_argument("--recompute-de", action="store_true",
+                        help="Redo the DE even if de_malignant_vs_normal_by_subtype.xlsx exists")
     parser.add_argument(
         "--swarm-group-key",
         default="auto",
@@ -1852,6 +1865,17 @@ def main(argv: list[str] | None = None) -> int:
         except Exception:
             args.swarm_group_key = "cell_type"
         say(f"Figure 9 group key: {args.swarm_group_key} (override with --swarm-group-key)")
+
+    # Malignant vs normal DE, overall and within each subtype: figures + Excel workbook
+    if not args.no_de_by_subtype:
+        try:
+            import metacellcnv_de as _DE
+            _DE.run(results, out_dir=results, fig_dir=fig_dir,
+                    group_key=("anno_label" if getattr(args, "swarm_group_key", "") != "cell_type" else "cell_type"),
+                    min_metacells=args.de_min_metacells, min_cells=args.de_min_cells,
+                    top_n=args.de_top_n, recompute=args.recompute_de)
+        except Exception as exc:
+            warn(f"Skipping the DE-by-subtype figures: {exc}")
 
     if args.engine in ("plotly", "both"):
         try:

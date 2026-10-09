@@ -2575,12 +2575,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--n-hvg", type=int, default=N_HVG)
     parser.add_argument("--n-pcs", type=int, default=N_PCS)
     parser.add_argument("--leiden-resolution", type=float, default=0.5)
-    parser.add_argument("--metacell-annotation", action="store_true",
-                        help="Annotate metacells as typed / measured-mixture / "
-                             "unclassified and write metacell_annotation.csv "
-                             "(validated panel + karyotype projection + shuffle calibration)")
+    parser.add_argument("--metacell-annotation", action="store_true", default=True,
+                        help="Label metacells as typed / measured-mixture / unclassified (anno_label) and "
+                             "write metacell_annotation.csv (validated panel + karyotype projection + "
+                             "shuffle calibration). On by default; kept for compatibility, so giving it "
+                             "or not makes no difference")
     parser.add_argument("--no-metacell-annotation", action="store_true",
-                        help="Disable --metacell-annotation (already off by default, usually unneeded)")
+                        help="Skip the annotation (no anno_label; --visualize falls back to cell_type)")
     parser.add_argument("--annotation-panel-fdr", type=float, default=0.01,
                         help="FDR for the panel-score threshold (against a cell->metacell shuffle null)")
     parser.add_argument("--annotation-mixture-fdr", type=float, default=0.05,
@@ -2596,11 +2597,72 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--preflight-only", action="store_true", help="Run only the preflight checks and exit"
     )
     parser.add_argument(
+        "--no-de-by-subtype", action="store_true",
+        help="Skip the malignant-vs-normal DE within each subtype (tables and Excel workbook)"
+    )
+    parser.add_argument(
+        "--de-min-metacells", type=int, default=3,
+        help="Metacells needed in EACH of malignant and normal for a within-subtype comparison (default 3)"
+    )
+    parser.add_argument(
+        "--de-min-cells", type=int, default=100,
+        help="Cells needed in EACH of malignant and normal for a within-subtype comparison (default 100)"
+    )
+    parser.add_argument(
+        "--no-scanpy", action="store_true",
+        help="Skip the scanpy preprocessing (UMAP, clusters, QC tables) that normally runs "
+             "at the end of this script"
+    )
+    parser.add_argument(
+        "--scanpy-dir", default=None,
+        help="Output directory of the scanpy preprocessing (default <out-dir>/scanpy, "
+             "which --visualize reads by default)"
+    )
+    parser.add_argument(
         "--skip-doublet-rescue",
         action="store_true",
         help="Skip the single-cell CNV-based doublet rescue step (reduces compute cost)",
     )
     return parser.parse_args(argv)
+
+
+def run_scanpy_prep(args, cellranger_dirs, gtf_gene_id, mito_chromosomes, out_dir: Path) -> bool:
+    """Run the metacellcnv_scanpy preprocessing and write the UMAP, cluster and QC tables.
+
+    Output goes to <out-dir>/scanpy (change with --scanpy-dir), which --visualize
+    reads by default. This is an extra output that does not change the main
+    results; a failure only warns and the run continues.
+    """
+    prep_dir = Path(args.scanpy_dir) if args.scanpy_dir else out_dir / "scanpy"
+    argv = ["--out-dir", str(prep_dir), "--gtf", str(args.gtf),
+            "--gtf-gene-id", str(gtf_gene_id),
+            "--n-hvg", str(args.n_hvg), "--n-pcs", str(args.n_pcs),
+            "--expected-doublet-rate", str(args.expected_doublet_rate)]
+    for d in cellranger_dirs:
+        argv += ["--cellranger-dir", str(d)]
+    for sid in args.sample_id or []:
+        argv += ["--sample-id", str(sid)]
+    if args.chromosome_map:
+        argv += ["--chromosome-map", str(args.chromosome_map)]
+    for c in mito_chromosomes or []:
+        argv += ["--mito-chromosome", str(c)]
+    if args.mito_reference_profile:
+        argv += ["--mito-reference-profile", str(args.mito_reference_profile)]
+    for flag, on in (("--no-pctmt-filter", args.no_pctmt_filter),
+                     ("--keep-mito-in-hvg", args.keep_mito_in_hvg),
+                     ("--exclude-ribosomal-from-hvg", args.exclude_ribosomal_from_hvg)):
+        if on:
+            argv.append(flag)
+    try:
+        import metacellcnv_scanpy as _S
+        log(f"=== scanpy preprocessing (UMAP, clusters, QC tables) -> {prep_dir} ===")
+        rc = int(_S.main(argv) or 0)
+        return rc == 0
+    except SystemExit as exc:
+        warn(f"scanpy preprocessing exited (continuing): {exc}")
+    except Exception as exc:
+        warn(f"scanpy preprocessing failed (main results are not affected): {exc}")
+    return False
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -3086,9 +3148,25 @@ def main(argv: list[str] | None = None) -> int:
         de_results.sort_values("padj").to_csv(de_path)
         log(f"Saved DE results: {de_path}")
         print(de_results.query("padj < 0.05").sort_values("padj").head(20))
+        # --- Step 4b-2: malignant vs normal DE within each subtype (tables and Excel; figures come from --visualize) ---
+        if not args.no_de_by_subtype:
+            try:
+                import metacellcnv_de as _DE
+                _DE.run(out_dir, out_dir=out_dir, adata=de_input, obs=de_input.obs.copy(),
+                        de_fn=run_de_branch, overall=de_results, group_key="anno_label",
+                        min_metacells=args.de_min_metacells, min_cells=args.de_min_cells,
+                        n_cpus=args.n_cpus, min_total_counts=args.min_total_counts,
+                        figures=False, recompute=True)
+            except Exception as exc:
+                warn(f"DE by subtype failed (the overall DE result is not affected): {exc}")
 
     _write_h5ad(mc_adata, out_dir / "metacells.h5ad")
     _write_h5ad(adata, out_dir / "singlecells_qc.h5ad")
+    # --- Last step: scanpy preprocessing (UMAP, clusters, QC tables); --visualize reads <out-dir>/scanpy ---
+    if not args.no_scanpy:
+        run_scanpy_prep(args, cellranger_dirs, gtf_gene_id, mito_chromosomes, out_dir)
+    else:
+        log("--no-scanpy: skipping the scanpy preprocessing (--visualize will have no UMAP figure)")
     log("Done. Outputs: " + ", ".join(sorted(p.name for p in out_dir.iterdir())))
     return 0
 
@@ -3110,6 +3188,10 @@ def _dispatch(argv: list[str]) -> int | None:
     if head == "--scanpy":
         import metacellcnv_scanpy as _m
         log("=== metacellcnv --scanpy: running preprocessing ===")
+        return int(_m.main(rest) or 0)
+    if head == "--de":
+        import metacellcnv_de as _m
+        log("=== metacellcnv --de: malignant vs normal DE (overall and within subtypes) ===")
         return int(_m.main(rest) or 0)
     if head == "--visualize":
         import metacellcnv_visualize as _m

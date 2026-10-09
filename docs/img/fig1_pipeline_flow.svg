@@ -46,17 +46,18 @@
 <text x="394" y="495" font-family="monospace" font-size="12" fill="#222">--malignant-n-sd 3.0  --min-clone-gap 0.25</text>
 <line x1="190" y1="520" x2="190" y2="544" stroke="#444" stroke-width="1.4" marker-end="url(#ar)"/>
 <rect x="20" y="544" width="340" height="76" rx="6" fill="#eef4fb" stroke="#444" stroke-width="1.2"/>
-<text x="190.0" y="577.0" text-anchor="middle" font-size="13" font-weight="bold">⑥ 任意の解析</text>
-<text x="190.0" y="595.0" text-anchor="middle" font-size="13">系譜(Dollo)・metacell 注釈・DE</text>
+<text x="190.0" y="577.0" text-anchor="middle" font-size="13" font-weight="bold">⑥ 型注釈・系譜・DE</text>
+<text x="190.0" y="595.0" text-anchor="middle" font-size="13">metacell 注釈(anno_label)・系譜(Dollo)・DE</text>
 <line x1="360" y1="582" x2="388" y2="582" stroke="#999" stroke-dasharray="3,3"/>
 <text x="394" y="568" font-family="monospace" font-size="12" fill="#222">--lineage  --lineage-level  --lineage-events</text>
-<text x="394" y="586" font-family="monospace" font-size="12" fill="#222">--metacell-annotation</text>
+<text x="394" y="586" font-family="monospace" font-size="12" fill="#222">--no-metacell-annotation(anno_label は既定で付く。§6.4)</text>
 <text x="394" y="604" font-family="monospace" font-size="12" fill="#222">--sample-kind† {auto|tissue|cell-line}(DE を行うか)</text>
 <line x1="190" y1="620" x2="190" y2="644" stroke="#444" stroke-width="1.4" marker-end="url(#ar)"/>
 <rect x="20" y="644" width="340" height="76" rx="6" fill="#eef4fb" stroke="#444" stroke-width="1.2"/>
 <text x="190.0" y="668.0" text-anchor="middle" font-size="13" font-weight="bold">⑦ 出力と可視化</text>
-<text x="190.0" y="686.0" text-anchor="middle" font-size="13">metacell_obs.csv ほか(表3)</text>
+<text x="190.0" y="686.0" text-anchor="middle" font-size="13">metacell_obs.csv ほか(表3)、scanpy/(UMAP)</text>
 <text x="190.0" y="704.0" text-anchor="middle" font-size="13">metacellcnv_visualize.py で図とレポート</text>
 <line x1="360" y1="682" x2="388" y2="682" stroke="#999" stroke-dasharray="3,3"/>
-<text x="394" y="686" font-family="monospace" font-size="12" fill="#222">--results-dir  --prep-dir  --engine {plotly|matplotlib|both}</text>
+<text x="394" y="677" font-family="monospace" font-size="12" fill="#222">--results-dir  --engine {plotly|matplotlib|both}</text>
+<text x="394" y="695" font-family="monospace" font-size="12" fill="#222">--no-scanpy  --scanpy-dir(UMAP・QC 表は &lt;out-dir&gt;/scanpy に自動出力)</text>
 </svg>

@@ -9,7 +9,7 @@ If you only want the conclusions, read Sec. 3 (choosing a reference) and Sec. 8 
 
 ## 0. How to read this guide
 
-- **Version covered**: the working version of `metacellcnv.py` (as of 2026-09-29). Option names and defaults were checked against `--help` and the code.
+- **Version covered**: the working version of `metacellcnv.py` (as of 2026-10-09). Option names and defaults were checked against `--help` and the code. On 2026-10-09 the annotation that assigns `anno_label` and the scanpy preprocessing became default steps of the main script (Sec. 6.4, Table 3). The same day, DE of malignant vs normal within each subtype was added (Sec. 6.5).
 - **†**: options that are not yet in the public repository (commit of 2026-09-17), only in the working version. These are `--sample-kind`, `--cnv-reference external`, `--cnv-external-reference`, and `build_external_cnv_reference.py`, which builds the external reference.
 - **Status tags**: each item is one of the following.
     - **[implemented]**: usable as a pipeline option.
@@ -98,6 +98,10 @@ The minimal flow has three steps: check, main run, plots. Replace `<...>` with y
 | Also output lineage | Add `--lineage` (uses loss events only; default `--lineage-events loss`) |
 | Plots and report | `python metacellcnv.py --visualize --results-dir results/<sample> [--prep-dir prep/<sample>]` |
 
+At the end, the main script also writes the scanpy preprocessing (UMAP, clusters, QC tables) to `<out-dir>/scanpy/` automatically. You no longer need to preprocess with a separate script and pass `--prep-dir`.
+`--visualize --results-dir results/<sample>` alone also draws the UMAP figure. To skip it, add `--no-scanpy`.
+The main results (cell set, metacells, CNV) are not affected by this extra output.
+
 Habits recommended before and after a run:
 
 1. **When comparing references, always reuse the metacells** (`--seacell-assignments`). The metacell composition is then identical, so the only difference is the reference.
@@ -113,12 +117,16 @@ Habits recommended before and after a run:
 | `metacell_obs.csv` | Per-metacell table | See Table 4 below |
 | `malignant_call.txt` | Method and basis of the malignant call, in one line | States the method (reference or gap method) and the threshold |
 | `INTERPRETATION_CAVEATS.txt` | Cautions specific to this run | **Must read.** When comparing several samples, read the one from each sample |
+| `metacell_annotation.csv`, `metacell_annotation_report.json` | Basis and calibration values of the metacell type annotation (`anno_label`) | Written by default (turn off with `--no-metacell-annotation`). See Sec. 6.4 |
+| `scanpy/` | UMAP (`umap3d.tsv.gz`), clusters, QC tables, `prep_manifest.json` | Written automatically at the end of the main run (`--no-scanpy` to skip, `--scanpy-dir` to move). `--visualize` reads it by default |
 | `cnv_metacells.h5ad` | metacell x window CNV matrix | `obsm['X_cnv']` holds the CNV (sparse; small values are set to 0 by a dynamic threshold); `uns['cnv']['chr_pos']` holds the start of the windows of each chromosome |
 | `clone_chromosome_profiles.csv` | Mean CNV per clone x chromosome | Source table of the heatmap. With `--cnv-refine`, a `_refined` version is also written |
 | `cell_to_metacell.csv` | Barcode → metacell mapping | Also used for reuse (`--seacell-assignments`) |
 | `metacells.h5ad`, `singlecells_qc.h5ad` | Single-cell data after metacell aggregation / after QC | The latter is large |
 | `qc_metrics.csv`, `metacell_metrics.csv`, `metacell_mito_qc.csv`, `mito_gene_profile.csv` | QC and mtDNA check results | For a sample with an unnatural mtDNA composition, consider `--no-pctmt-filter` |
-| `de_malignant_vs_normal.csv` | DE of malignant vs normal | Metacells from one sample are pseudo-replicates, so p-values cannot be used for inference. The groups are defined by CNV, so it is also circular |
+| `de_malignant_vs_normal.csv` | DE of malignant vs normal (all metacells) | Malignant and normal also differ in cell type, so this table picks up type differences. For the tumor itself, look within one type (next row, Sec. 6.5). Metacells from one sample are pseudo-replicates, so p-values cannot be used for inference. The groups are defined by CNV, so it is also circular |
+| `de_malignant_vs_normal_by_subtype.xlsx`, `de_by_subtype/*.csv` | DE of malignant vs normal, overall and within each subtype | One sheet per comparison in the workbook; the first sheet `Summary` lists metacell counts, cell counts, gene counts, and the reason a subtype was skipped (Sec. 6.5). Turn off with `--no-de-by-subtype` |
+| `figures/de/` | One figure per comparison above (open `index.html`) | One file per comparison: a volcano plot and the expression of the top genes per metacell |
 | `cnv_lineage.nwk`, `cnv_lineage_branches.csv`, `cnv_lineage_events.csv`, `cnv_lineage_report.json` | Lineage (only with `--lineage`) | If `has_structure` is false, do not read the tree as a lineage |
 | `environment.lock.txt` | Record of the run environment | Keep for reproducibility |
 
@@ -127,10 +135,13 @@ Habits recommended before and after a run:
 | Column | Meaning |
 |---|---|
 | `n_cells`, `sample_id` | Number of cells in the metacell, sample of origin |
-| `cell_type` | Marker-based cell type, with the coarse-cluster number as in `Myeloid_0`. **Used to decide whether a metacell is a reference** |
+| `cell_type` | Coarse-cluster marker annotation, with the cluster number as in `Myeloid_0`. **Used to decide whether a metacell is a reference.** Its evidence is weak, so it is not used in figure legends (Sec. 6.4) |
 | `cnv_score` | L2 norm of the CNV profile. Larger = further from the reference |
 | `cnv_leiden` | Clone defined by CNV. The malignant / normal call is made per clone |
 | `putative_malignant` | `malignant` / `normal` / `unassigned`. `normal` means "indistinguishable from the reference". **In runs without a reference (gap method) this is an internal split by `cnv_score`, not tumor vs normal** |
+| `anno_label` | **Evidence-based type annotation** (Sec. 6.4), e.g. `Macrophage`, `Tumor:Epithelial`, `Mixed:tumor+normal`, `Unclassified:...`. Figures group metacells by this |
+| `anno_label_kind`, `anno_evidence` | `typed` / `measured-mixture` / `unclassified`, and a sentence giving the basis of the call |
+| `anno_cnv_frac_tumor_cells`, `anno_cnv_mixture_q`, `anno_karyotype_proj` | Inputs of the mixture call (fraction of cells on the tumor side, binomial-test q-value, karyotype projection) |
 | `mito_*`, `ratio_outlier`, etc. | Quality flags derived from mtDNA |
 
 ## 6. How the call works, and the definition of "reference"
@@ -205,6 +216,69 @@ Note that the correlation of adjacent non-overlapping windows (panels (f)(g) of 
 We think this is because metacells within a clone are in a similar state and vary little. What can be used as evidence for the call is blockiness and the correlation with the tumor pattern.
 Change points are estimated automatically from the difference between the malignant-called and normal-called groups and are coarser than the real boundaries (for reference only).
 
+### 6.4 How `anno_label` is assigned
+
+`cell_type` (the marker annotation per coarse cluster) is a coarse name used to pick the reference; names such as `Myeloid_0` have weak evidence and are not suited to figure legends.
+`anno_label` is the annotation assigned **per metacell, with the evidence measured**. When `anno_label` exists, `--visualize` always uses it to group metacells (the UMAP scatter panels, the CNV heatmap, and the DEG figure).
+If `metacell_obs.csv` has no `anno_label`, it falls back to `cell_type` with a warning.
+
+**It is assigned by default** (turn off with `--no-metacell-annotation`). It has four steps.
+
+1. **Per-cell karyotype projection**: the mean per-chromosome log2 ratio of the metacells called malignant vs normal is taken as the "karyotype", and single cells are projected onto it. The distribution of projections is split into two components with a mixture model, giving a tumor-side / normal-side threshold. If bimodality cannot be confirmed, the mixture call is not made.
+2. **Measuring mixture**: for each metacell the fraction of tumor-side cells is counted; if a binomial test is significant (FDR `--annotation-mixture-fdr`, default 0.05), the label is `Mixed:tumor+normal`.
+3. **Type call**: a metacell that is not mixed is typed by the aggregate score of each type's panel (the table of `--markers`). The threshold comes from a null distribution made by shuffling the cell-to-metacell assignment, at FDR `--annotation-panel-fdr` (default 0.01) with `--annotation-perm` shuffles (default 30). **A type is assigned only when exactly one type exceeds its threshold and at least 3 genes exceed theirs individually.** The type becomes `Tumor:<type>` or `<type>` depending on the side of the karyotype.
+4. **Anything that cannot be decided is held back, with a reason.**
+
+**Table 6. Values of `anno_label`**
+
+| Value | Kind (`anno_label_kind`) | Meaning |
+|---|---|---|
+| `<type>` (e.g. `Macrophage`) | typed | One type was called, on the normal side of the karyotype |
+| `Tumor:<type>` (e.g. `Tumor:Epithelial`) | typed | One type was called, on the tumor side of the karyotype |
+| `Mixed:tumor+normal` | measured-mixture | A mixture of tumor and normal cells was measured by the binomial test |
+| `Tumor:Unclassified` | unclassified | Tumor side, but no type exceeds its threshold (phenotype unknown) |
+| `Unclassified:multiple-types` | unclassified | Two or more types exceed their thresholds at once; cannot narrow to one |
+| `Unclassified:low-depth` | unclassified | Too few cells that can be called (cells with 2,000 or more detected genes) |
+| `Unclassified:no-dominant-type` | unclassified | Cells can be called, but no type stands out |
+
+Cautions when reading:
+
+- **Only types whose panel is marked "for typing" can be assigned.** In the validated dog table these are Macrophage, Endothelial, Fibroblast, and Epithelial. T/NK, B/Plasma, and SmoothMuscle are "reference only" (scores are given but no type is assigned), so T cells and B cells never appear in `anno_label`. Only panels with at least 3 genes present in the data are used.
+- The human and mouse tables only had their naming converted and are unvalidated; using them prints a warning that unvalidated panels are in use. For a tumor-only cell line (the SNU-638 test), all 11 metacells became `Unclassified:no-dominant-type`, which is the expected result.
+- **The karyotype is built from the malignant call (`putative_malignant`).** In a run without a reference (D in Table 1, gap method) malignant / normal is not tumor vs normal, so the `Tumor:` prefix and the `Mixed:` call have no meaning. Only the type part without the prefix is usable there.
+- The type is per metacell. `cell_type` (coarse cluster) is not overwritten.
+
+**To add it to an existing result**, run again with the same input into a different `--out-dir`, reusing the metacells (`--seacell-assignments results/<sample>/cell_to_metacell.csv`). If `metacell_annotation.csv` sits next to `metacell_obs.csv`, `--visualize` reads it in as `anno_label`.
+
+### 6.5 DE of malignant vs normal: overall and within a type
+
+`de_malignant_vs_normal.csv` compares **all malignant metacells with all normal metacells**. Malignant metacells are tumor epithelium while normal ones are immune and stromal cells, so the top genes include **cell-type differences**.
+This table and the figures grouped by type (Fig. 9, `de_report.html`) alone do not describe the tumor itself. We therefore added a comparison of **malignant vs normal inside the same type**.
+
+1. The **type** is `anno_label` with `Tumor:` removed (Sec. 6.4). `Unclassified:...` and `Mixed:...` name no single type, so they are not types. Without `anno_label` it falls back to `cell_type` with a warning.
+2. The **comparisons** are the overall one (`Overall`) and every type that has enough data in **both** the malignant and normal groups: at least `--de-min-metacells` metacells (default 3) and at least `--de-min-cells` cells (default 100; the sum of `n_cells` of the metacells) in each group. Types that do not qualify are not run, and the reason is written in `Summary`.
+3. The **test** is the same pyDESeq2 as the main DE (metacell level, covariate `sample_id`), malignant vs normal. A positive `log2FoldChange` means higher in malignant.
+4. The **outputs** are the Excel workbook (`de_malignant_vs_normal_by_subtype.xlsx`) with one sheet per comparison, and one figure per comparison (`figures/de/de_<name>.html`, entry page `figures/de/index.html`). Each figure has a volcano plot and the per-metacell expression (log1p CPM) of the top 12 genes (half up, half down).
+    - In the tables, `direction` is `up in malignant` / `down in malignant` for genes with padj < 0.05, |log2FoldChange| >= 0.5, and baseMean >= 5, and `ns` otherwise. `mean_logCPM_malignant` and `mean_logCPM_normal` are the mean expression of each group.
+    - The main run writes the tables and the workbook; `--visualize` draws the figures. If you run `--visualize` on an older result that has no tables, it also runs the DE (it needs `metacells.h5ad` and `metacell_obs.csv`).
+
+Examples:
+
+```bash
+# main run (writes the tables and the workbook by default)
+python metacellcnv.py ... --out-dir results/<sample>
+# figures (runs the DE too if there are no tables); to change the criteria
+python metacellcnv.py --visualize --results-dir results/<sample> --de-min-cells 50 --de-min-metacells 3
+# redo only the DE
+python metacellcnv.py --de --results-dir results/<sample> --recompute
+```
+
+Cautions when reading:
+
+- **Many types cannot be compared.** In the Case1 test (65 malignant and 299 normal metacells), only Fibroblast met the criteria in both groups (malignant 8 metacells / 468 cells, normal 4 metacells / 310 cells). Epithelial has 43 malignant but only 1 normal metacell, and Macrophage has 0 malignant. In Case23 only Fibroblast (3 malignant, 16 normal) qualified, and no gene was significant. **In a sample without normal epithelial cells, tumor epithelium cannot be compared with its normal counterpart.** The tumor's features then come only from the overall comparison, which contains type differences.
+- A comparison with small groups (e.g. 8 vs 4) is unstable even when the p-values are small. Check the metacell counts in `Summary`.
+- Malignant / normal comes from the CNV call and the type from the annotation, and both depend on the same data (circularity). Metacells are pseudo-replicates, so p-values are a way to rank genes, not evidence. padj is corrected within each comparison, not across comparisons.
+
 ## 7. Reliability without a reference or with other samples as reference (validation)
 
 We measured on data with known truth how far CNV can be trusted when there is no reference in the sample (C and D in Table 1).
@@ -260,7 +334,7 @@ The across-sample difference (0.59-0.64) is more than four times the within-samp
 5. In clones called "normal", is the correlation with the tumor pattern or the blockiness high (Figs. 6 and 7, (h)(i))?
 6. If the reference is another sample or public data, did you state the "undetermined regions" and the "between-sample shift" in the results (Sec. 7)?
 7. Did you write a result without a reference (D in Table 1) as absolute CNV? What is visible is only the relative difference between subclones. If `malignant_call.txt` shows the gap method, did you read `putative_malignant` as tumor vs normal? (With 2 clones it always splits in two.)
-8. Did you use DE p-values for inference (pseudo-replication, circularity)?
+8. Did you use DE p-values for inference (pseudo-replication, circularity)? Did you describe the tumor from the overall comparison alone (it contains type differences)? Did you check the group sizes of the within-type comparisons (Sec. 6.5)?
 9. Did you read the lineage only when `has_structure` is true?
 10. Did you confirm important conclusions with another method such as CopyKAT or SCEVAN?
 
@@ -283,6 +357,8 @@ The across-sample difference (0.59-0.64) is more than four times the within-samp
 | Warning that mtDNA genes are not found | The Cell Ranger reference may not contain mtDNA. QC by pctMT will not work, so add `--no-pctmt-filter` |
 | Stops with "正常参照が確保できません" (cannot secure a normal reference) | There is no reference-type cell. For a tumor-only sample, specify `--cnv-reference none`. If you know of clusters that are normal, name them with `--normal-clusters` (Sec. 3) |
 | No DE because references are few | With fewer than 3 reference metacells the sample is treated as a single line and DE is skipped (`--sample-kind`†). The CNV call is still output |
+| `--visualize` warns that `anno_label` is missing and uses `cell_type` | The run used `--no-metacell-annotation`, or the output is from an older version. Run again with the same input, reusing the metacells (`--seacell-assignments`) (Sec. 6.4) |
+| No UMAP figure in `--visualize` | `<out-dir>/scanpy/umap3d.tsv.gz` is missing. The run used `--no-scanpy`, or wrote elsewhere (point to it with `--prep-dir`) |
 | All malignant calls are `unassigned` | The gap method found no clear bimodality and abandoned the call. The same happens with a single clone. Lower `--cells-per-metacell` to raise resolution, or name the groups with `--normal-clusters` |
 | Reading `cnv_metacells.h5ad` with anndata 0.11.4 fails at `uns/log1p/base` | The saved `log1p` is null. Copy the file and delete `uns/log1p` with `h5py`, then it can be read |
 | Out of memory (doublet detection ran out of memory on an environment of about 4 GB) | Run samples with many cells on a machine with more memory |
